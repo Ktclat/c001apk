@@ -62,7 +62,7 @@ class FontChoiceTile extends StatelessWidget {
                             '中文阅读效果 · 数字 123 ABC',
                             style: defaultPreviewStyle?.copyWith(
                               fontFamily: choice.familyForPlatform(platform) ??
-                                  defaultPreviewStyle?.fontFamily,
+                                  defaultPreviewStyle.fontFamily,
                               fontSize: 16,
                               height: 1.45,
                             ),
