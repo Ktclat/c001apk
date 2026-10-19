@@ -2,6 +2,8 @@
 > **Ktclat/coolapk 自定义字体分支**：本仓库基于 [TG-Twilight/c001apk](https://github.com/TG-Twilight/c001apk)（AGPL-3.0）维护。
 > 本分支的改动重点是 Android 字体跟随系统、Material 字体回退选项，以及中文文本的字号、字重和行高。
 > 字体入口：**设置 → 外观与字体 → 界面字体**。实现细节见 [字体改造说明](docs/FONT_GUIDE.md)。
+> 构建与下载测试 APK：打开 [Android font build](https://github.com/Ktclat/coolapk/actions/workflows/android-font-build.yml)，选择成功的运行记录，在 **Artifacts** 中下载 `coolapk-system-font-android-debug`。
+> **安装注意**：测试 APK 使用 Debug 签名，和上游正式版使用同一 Android 包名，不能直接覆盖不同签名的正式版。卸载旧版前务必备份本地数据；想与正式版并存，应先修改包名后构建。
 
 ---
 
