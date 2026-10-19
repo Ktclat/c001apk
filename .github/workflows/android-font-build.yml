@@ -1,0 +1,46 @@
+name: Android font build
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/flutter/**'
+      - '.github/workflows/android-font-build.yml'
+  pull_request:
+    paths:
+      - 'apps/flutter/**'
+      - '.github/workflows/android-font-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify-and-build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: apps/flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.5'
+          channel: stable
+          cache: true
+      - name: Resolve Flutter dependencies
+        run: flutter pub get --enforce-lockfile
+      - name: Static analysis
+        run: flutter analyze --no-pub --no-fatal-infos
+      - name: Regression tests
+        run: flutter test --no-pub
+      - name: Build installable Android debug APK
+        run: flutter build apk --debug --no-pub
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: coolapk-system-font-android-debug
+          path: apps/flutter/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
