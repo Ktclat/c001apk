@@ -40,11 +40,13 @@ jobs:
           test -f docs/FONT_GUIDE.md
           # Keep our modified files/README and import the rest, including
           # the complete upstream AGPL license, build scripts and assets.
-          rsync -a --ignore-existing --exclude='.git' _upstream/ ./
+          # GitHub Actions tokens cannot add another workflow file; the
+          # upstream build workflow will be created using repository tools.
+          rsync -a --ignore-existing --exclude='.git' --exclude='.github/workflows/' _upstream/ ./
           rm -rf _upstream
           test -f LICENSE
           test -f apps/flutter/pubspec.yaml
-          test -f .github/workflows/build.yml
+          test -f .github/workflows/bootstrap-source.yml
           git add -A
           if git diff --cached --quiet; then
             echo 'Upstream source already present'
