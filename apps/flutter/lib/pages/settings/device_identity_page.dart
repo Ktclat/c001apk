@@ -1,0 +1,202 @@
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../../utils/official_device_identity.dart';
+import '../../utils/storage_util.dart';
+import '../../utils/utils.dart';
+
+class DeviceIdentityPage extends StatefulWidget {
+  const DeviceIdentityPage({super.key});
+
+  @override
+  State<DeviceIdentityPage> createState() => _DeviceIdentityPageState();
+}
+
+class _DeviceIdentityPageState extends State<DeviceIdentityPage> {
+  final _text = TextEditingController();
+  String? _pending, _error;
+  bool _saving = false, _saved = false;
+
+  @override
+  void dispose() {
+    _text.dispose();
+    _pending = null;
+    super.dispose();
+  }
+
+  void _recognize(String text) {
+    try {
+      final id = OfficialDeviceIdentity.parse(text);
+      _text.clear();
+      setState(() {
+        _pending = 'ShuzlmID: $id';
+        _error = null;
+        _saved = false;
+      });
+    } on FormatException catch (error) {
+      setState(() {
+        _pending = null;
+        _error = text.isEmpty ? null : error.message.toString();
+        _saved = false;
+      });
+    }
+  }
+
+  Future<void> _paste() async {
+    setState(() {
+      _pending = null;
+      _saved = false;
+      _error = null;
+    });
+    try {
+      final value = await Clipboard.getData(Clipboard.kTextPlain);
+      if (!mounted) return;
+      if (value?.text?.trim().isNotEmpty != true) {
+        setState(() => _error = '剪贴板没有文本，请先在官方酷安完成复制');
+        return;
+      }
+      _recognize(value!.text!);
+    } catch (_) {
+      if (mounted) setState(() => _error = '无法读取剪贴板，请长按输入框手动粘贴');
+    }
+  }
+
+  Future<void> _save() async {
+    final value = _pending;
+    if (value == null || _saving) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _saving = true);
+    try {
+      await GStorage.importOfficialDeviceIdentity(value);
+      if (!mounted) return;
+      setState(() {
+        _pending = null;
+        _saved = true;
+        _error = null;
+      });
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _error = error.message.toString());
+    } catch (_) {
+      if (mounted) setState(() => _error = '保存失败，请稍后重试');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Future<void> _openOfficial() async {
+    try {
+      final opened =
+          await Utils.platform.invokeMethod<bool>('openOfficialIdSettings');
+      if (opened != true) _showOfficialError(false);
+    } on PlatformException catch (error) {
+      _showOfficialError(error.code == 'official_client_not_installed');
+    } catch (_) {
+      _showOfficialError(false);
+    }
+  }
+
+  void _showOfficialError(bool notInstalled) {
+    if (!mounted) return;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(notInstalled ? '尚未安装官方酷安' : '无法打开酷安 OAID 界面'),
+        content: Text(notInstalled
+            ? '请先安装官方酷安，再点击“酷安 OAID 界面”复制设备标识。'
+            : '请确认官方酷安已启用，并更新至支持此入口的版本后重试。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('知道了'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+        appBar: AppBar(title: const Text('导入官方设备标识')),
+        body: Align(
+          alignment: Alignment.topCenter,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 760),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                const Text('减少重复人机验证',
+                    style:
+                        TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                const Text('可从官方酷安手动导入数盟 ID，改善部分内容的访问。'
+                    '目前为临时方案，有效期由服务端决定，仍可能要求验证。'),
+                const SizedBox(height: 16),
+                const Text('1. 进入官方酷安的 OAID 界面（“检查日志和测试”页）。\n'
+                    '2. 向下找到“复制 OAID”，在同一页面累计点击 5 次。\n'
+                    '3. 返回这里，粘贴完整内容，识别后保存。'),
+                const SizedBox(height: 12),
+                Wrap(spacing: 8, runSpacing: 8, children: [
+                  if (defaultTargetPlatform == TargetPlatform.android)
+                    OutlinedButton.icon(
+                      onPressed: _openOfficial,
+                      icon: const Icon(Icons.open_in_new),
+                      label: const Text('酷安 OAID 界面'),
+                    ),
+                  TextButton.icon(
+                    onPressed: () =>
+                        Utils.launchURL(OfficialDeviceIdentity.guideUrl),
+                    icon: const Icon(Icons.help_outline),
+                    label: const Text('仓库图文说明'),
+                  ),
+                ]),
+                const SizedBox(height: 12),
+                const Text('虽然官方按钮叫“复制 OAID”，这里实际使用其中的 ShuzlmID（数盟 ID）。'
+                    '其余字段会被忽略，不会保存 AndroidID、UUID 等复制内容。'),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: _text,
+                  minLines: 2,
+                  maxLines: 4,
+                  enabled: !_saving,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  onChanged: _recognize,
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    labelText: '粘贴官方复制的完整文本',
+                    hintText: '需包含 ShuzlmID 字段；识别成功后自动隐藏内容',
+                  ),
+                ),
+                const SizedBox(height: 8),
+                if (_pending != null) const Text('已识别数盟 ID，复制内容已隐藏。点击保存后生效。'),
+                if (_saved) const Text('已保存。返回内容页后刷新即可，机型及其他设备参数已保留。'),
+                if (_error != null)
+                  Text(_error!,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.error)),
+                const SizedBox(height: 12),
+                Wrap(spacing: 12, runSpacing: 8, children: [
+                  OutlinedButton.icon(
+                    onPressed: _saving ? null : _paste,
+                    icon: const Icon(Icons.content_paste),
+                    label: const Text('粘贴并识别'),
+                  ),
+                  FilledButton(
+                    onPressed: _pending == null || _saving ? null : _save,
+                    child: Text(_saving ? '正在保存…' : '保存并应用'),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                Text(GStorage.szlmId.isEmpty
+                    ? '当前尚未导入官方设备标识。'
+                    : '本机已保存数盟 ID，可重新复制后更新。'),
+                const SizedBox(height: 8),
+                const Text('只在点击粘贴时读取剪贴板。标识保存在本机，用于酷安请求；'
+                    '请勿将复制内容或真实标识公开。电脑端需先在 Android 官方客户端完成复制，再自行传到电脑。'),
+              ],
+            ),
+          ),
+        ),
+      );
+}
