@@ -20,7 +20,7 @@
 
 在 [Android CI](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml) 中打开想使用的运行记录，展开 `Build installable Android debug APK` 看是否绿色；在 Artifacts 区域下载 **`c001apk-android-debug`**。解压后安装 `app-debug.apk`。产物保留 14 天。Artifacts 下载可能需要登录 GitHub。
 
-Debug APK 没有正式发布签名；当前可能与其他项目的 APK 共用 Android 包名，**不同签名不能直接覆盖安装**。卸载旧版会清除该应用的私有存储，请事先自行备份。Debug APK 不是正式版，也不自动成为 GitHub Release。
+Android 本 fork 的 applicationId 为 `io.github.ktclat.c001apk`；与原维护仓库的 APK 包名不同，可以并存，但本地数据不会自动迁移。Debug APK 仍没有正式发布签名；未来本仓库发布新版时，签名一致才能覆盖安装。卸载任意旧版前均应备份该应用本地数据。Debug APK 不是正式版，也不自动成为 GitHub Release。
 
 ## Android 本地构建
 
