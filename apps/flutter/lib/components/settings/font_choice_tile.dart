@@ -69,10 +69,12 @@ class FontChoiceTile extends StatelessWidget {
                           ),
                         ],
                       ),
-                      onChanged: (value) {
+                      onChanged: (value) async {
                         if (value == null) return;
-                        GStorage.setFontChoice(value);
-                        Navigator.of(sheetContext).pop();
+                        await GStorage.setFontChoice(value);
+                        if (sheetContext.mounted) {
+                          Navigator.of(sheetContext).pop();
+                        }
                       },
                     ),
                   const SizedBox(height: 12),
