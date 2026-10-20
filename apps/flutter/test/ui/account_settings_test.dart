@@ -126,7 +126,7 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
-  test('font setting uses native Android family and persists', () {
+  test('font setting uses native Android family and persists', () async {
     final base = ThemeData(platform: TargetPlatform.android, useMaterial3: true);
     final system = applyAppTypography(base, fontChoice: AppFontChoice.system);
     final material =
@@ -136,7 +136,7 @@ void main() {
     expect(material.textTheme.bodyMedium!.fontFamily, isNot('sans-serif'));
     expect(AppFontChoice.fromStorage(100), AppFontChoice.system);
     expect(AppFontChoice.fromStorage('invalid'), AppFontChoice.system);
-    GStorage.setFontChoice(AppFontChoice.material);
+    await GStorage.setFontChoice(AppFontChoice.material);
     expect(GStorage.fontChoice, AppFontChoice.material);
   });
   testWidgets('the font picker changes its saved choice', (tester) async {
