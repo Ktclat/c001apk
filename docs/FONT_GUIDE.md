@@ -1,6 +1,6 @@
 # 字体与中文排版改造说明
 
-本仓库源自 [TG-Twilight/c001apk](https://github.com/TG-Twilight/c001apk)（AGPL-3.0），Flutter 工程位于 `apps/flutter`。
+本项目由 [Ktclat/c001apk](https://github.com/Ktclat/c001apk) 维护，其代码源自 [TG-Twilight/c001apk](https://github.com/TG-Twilight/c001apk)（AGPL-3.0），Flutter 工程位于 `apps/flutter`。
 
 ## 为什么要改？
 
@@ -12,7 +12,7 @@
 
 **设置 → 外观与字体 → 界面字体**：
 
-- **跟随系统（推荐，默认）**：Android 指定 `sans-serif` 字体家族，让 Flutter 向系统字体映射请求无衬线字。设备若将 OEM 字体或用户设置的字体映射到这一家族，就能显示对应字体；厂商实现不同，因此不能保证所有 ROM 都生效。Windows 使用 Segoe UI；iOS/macOS 沿用 Flutter 的平台字体。
+- **跟随系统（推荐，默认）**：Android 指定 `sans-serif` 字体家族，让 Flutter 向系统字体映射请求无衬线字。设备若将 OEM 字体或用户设置的字体映射到这一家族，就能显示对应字体；厂商实现不同，因此不能保证所有 ROM 都生效。本仓库主要验证 Android；其他操作系统不在维护范围。
 - **Material 默认**：不强制字体家族，使用 Flutter/Material 的平台默认行为，便于与上游外观对照。
 
 设置保存在本地 Hive `settings` 中，切换后自动更新当前页面、亮色及深色主题。原有的字体大小滑块仍保留，并与 Android 系统无障碍文字缩放叠加。
@@ -53,9 +53,9 @@ theme.textTheme.apply(fontFamily: 'sans-serif');
 
 ## 验证
 
-- 桌面/终端：`cd apps/flutter && flutter pub get --enforce-lockfile && flutter analyze --no-pub --no-fatal-infos && flutter test --no-pub`
+- 开发机终端：`cd apps/flutter && flutter pub get --enforce-lockfile && flutter analyze --no-pub --no-fatal-infos && flutter test --no-pub`
 - Android 手机上依次对比「跟随系统」和「Material 默认」，重点查看首页动态、长评论、文章、设置说明与输入框；再把系统字体改成其他样式复测。
 - 检查字体放大至 1.3× 以及系统大字体时，是否出现溢出、截断、按钮碰撞。
-- 在某些系统上两种模式可能近乎一致，属于系统字体映射限制而非开关失效。
+- 某些系统上两种模式可能近乎一致，应以设备实测为准，不能只按菜单选择判断已经应用了厂商字体。
 
 参考：[Flutter 平台字体说明](https://docs.flutter.dev/ui/adaptive-responsive/platform-adaptations)、[Flutter 自定义字体文档](https://docs.flutter.dev/cookbook/design/fonts)、[Android Material 3 Typography](https://developer.android.com/develop/ui/compose/designsystems/material3)。
