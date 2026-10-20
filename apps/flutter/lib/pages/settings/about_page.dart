@@ -53,16 +53,24 @@ class AboutPage extends StatelessWidget {
               context: context,
               applicationName: Constants.APP_NAME,
               applicationVersion: version,
-              applicationLegalese: '基于 Flutter 构建',
+              applicationLegalese: 'GNU AGPL-3.0 · 保留原作者与第三方版权声明',
               applicationIcon: const AppLogo(),
             ),
           ),
           const Divider(),
           ListTile(
+            leading: const Icon(Icons.bug_report_outlined),
+            title: const Text('问题反馈'),
+            subtitle: const Text('在本项目仓库提交问题或功能建议'),
+            onTap: () =>
+                Utils.launchURL('${Constants.URL_SOURCE_CODE}/issues'),
+          ),
+          ListTile(
             leading: const Icon(Icons.favorite_outline),
-            title: const Text('致谢'),
-            subtitle: const Text('c001apk-flutter'),
-            onTap: () => Utils.launchURL(Constants.URL_UPSTREAM),
+            title: const Text('来源与致谢'),
+            subtitle: const Text('保留原维护者署名与第三方授权声明'),
+            onTap: () => Utils.launchURL(
+                '${Constants.URL_SOURCE_CODE}/blob/main/docs/THIRD_PARTY_NOTICES.md'),
           ),
         ],
       ),
