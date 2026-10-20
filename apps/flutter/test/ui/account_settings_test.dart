@@ -173,16 +173,12 @@ void main() {
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
     expect(AccountStore().accounts.length, 2);
-    await tester.runAsync(() async {
-      await tester.tap(find.text('合成账号一'));
-      await GStorage.settings.flush();
-    });
+    // UI gestures belong to WidgetTester’s fake-async zone. Running a tap
+    // inside runAsync while waiting for Hive IO can deadlock this test.
+    await tester.tap(find.text('合成账号一'));
     await finishAccountAction(tester);
     expect(GStorage.uid, '1');
-    await tester.runAsync(() async {
-      await tester.tap(find.text('使用游客模式'));
-      await GStorage.settings.flush();
-    });
+    await tester.tap(find.text('使用游客模式'));
     await finishAccountAction(tester);
     expect(GStorage.isLogin, isFalse);
     expect(AccountStore().accounts.length, 2);
