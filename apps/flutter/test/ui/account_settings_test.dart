@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:c001apk_flutter/logic/accounts/account_store.dart';
 import 'package:c001apk_flutter/pages/settings/settings_page.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
 import 'package:c001apk_flutter/utils/app_theme.dart';
@@ -27,11 +26,10 @@ void main() {
         buildSignature: '');
   });
   setUp(() async {
+    // This suite only checks typography and appearance widgets. Initializing
+    // the serialized account vault here can leave unrelated async work behind
+    // during widget teardown and cause spurious suite timeouts.
     await GStorage.settings.clear();
-    GStorage.setIsLogin(false);
-    GStorage.setUid('');
-    GStorage.setToken('');
-    await AccountStore().initialize();
   });
   tearDown(() async {
     Get.reset();
