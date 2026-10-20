@@ -36,7 +36,7 @@ void main() {
     GStorage.settings = await Hive.openBox('settings');
     PackageInfo.setMockInitialValues(
         appName: 'c001apk',
-        packageName: 'app.awavenue.c001apk',
+        packageName: 'io.github.ktclat.c001apk',
         version: '1.1.0',
         buildNumber: '20261014',
         buildSignature: '');
