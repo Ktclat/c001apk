@@ -38,7 +38,7 @@ class AppRelease {
   final String notes;
   final DateTime? publishedAt;
   final Map<String, Uri> _assets;
-  static const _repository = '/TG-Twilight/c001apk/releases/';
+  static const _repository = '/Ktclat/c001apk/releases/';
 
   static bool _trusted(Uri uri, String prefix) =>
       uri.scheme == 'https' &&
@@ -94,8 +94,6 @@ class AppRelease {
           .where(['arm64-v8a', 'armeabi-v7a', 'x86_64'].contains)
           .map((abi) => 'android-$abi.apk')
           .toList(),
-      'windows' => ['windows-x86_64.zip'],
-      'linux' => ['linux-x86_64.tar.gz'],
       _ => <String>[],
     };
     for (final suffix in suffixes) {
