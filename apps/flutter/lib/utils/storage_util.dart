@@ -283,9 +283,8 @@ class GStorage {
   static AppFontChoice get fontChoice => AppFontChoice.fromStorage(
       settings.get(SettingsBoxKey.fontChoice, defaultValue: 0));
 
-  static void setFontChoice(AppFontChoice value) {
-    settings.put(SettingsBoxKey.fontChoice, value.index);
-  }
+  static Future<void> setFontChoice(AppFontChoice value) =>
+      settings.put(SettingsBoxKey.fontChoice, value.index);
 
   static double get fontScale {
     return settings.get(SettingsBoxKey.fontScale, defaultValue: 1.0);
