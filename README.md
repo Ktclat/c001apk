@@ -1,105 +1,50 @@
-> [!NOTE]
-> **Ktclat/coolapk 自定义字体分支**：本仓库基于 [TG-Twilight/c001apk](https://github.com/TG-Twilight/c001apk)（AGPL-3.0）维护。
-> 本分支的改动重点是 Android 字体跟随系统、Material 字体回退选项，以及中文文本的字号、字重和行高。
-> 字体入口：**设置 → 外观与字体 → 界面字体**。实现细节见 [字体改造说明](docs/FONT_GUIDE.md)。
-> 构建与下载测试 APK：打开 [Android font build](https://github.com/Ktclat/coolapk/actions/workflows/android-font-build.yml)，选择成功的运行记录，在 **Artifacts** 中下载 `coolapk-system-font-android-debug`。
-> **安装注意**：测试 APK 使用 Debug 签名，和上游正式版使用同一 Android 包名，不能直接覆盖不同签名的正式版。卸载旧版前务必备份本地数据；想与正式版并存，应先修改包名后构建。
+# c001apk · Android
 
----
+> 本仓库 **Ktclat/c001apk** 是一个专注 Android 的非官方酷安客户端项目，使用 Flutter 开发。与酷安官方无隶属关系。本仓库的开发、反馈、构建及发布均由本仓库维护者负责。
 
-<div align="center">
+[![Android CI](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml/badge.svg?branch=main)](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml) [![AGPL-3.0](https://img.shields.io/badge/License-AGPL--3.0-blue)](LICENSE)
 
-<img src="docs/media/banner.svg" alt="c001apk — 让酷安，轻一点。" width="100%">
+**项目入口：** [Android 构建](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml) · [版本发布](https://github.com/Ktclat/c001apk/releases) · [本仓库问题反馈](https://github.com/Ktclat/c001apk/issues) · [开发文档](docs/DEVELOPMENT.md)
 
-# c001apk
+## 现有功能
 
-**轻量、简体中文的非官方酷安客户端**
+- 中文动态、评论、文章、应用详情、搜索与个人空间。
+- 游客浏览、账号登录与切换、本地关注与悄悄关注、收藏及浏览历史。
+- Material 3 动态取色、深色模式、**Android 系统字体选项**、独立字号调整。
+- 本仓库独立的版本更新检查；未发布正式 GitHub Release 时，会提示暂无正式版本。
+- Android 设备标识导入辅助流程（仅在用户操作下读取剪贴板内容）；详见[设备标识说明](docs/DEVICE_ID_IMPORT.md)。
 
-[![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-607D8B?style=flat-square)](LICENSE)
-[![Flutter](https://img.shields.io/badge/Flutter-3.24.5-02569B?style=flat-square&logo=flutter&logoColor=white)](docs/DEVELOPMENT.md)
-[![Build](https://github.com/TG-Twilight/c001apk/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/TG-Twilight/c001apk/actions/workflows/build.yml)
-![Platforms](https://img.shields.io/badge/平台-Android%20%7C%20Windows-486B78?style=flat-square)
-![Status](https://img.shields.io/badge/状态-持续维护中-6E8B74?style=flat-square)
+部分功能受酷安服务端接口、登录及人机验证限制。开发中的功能不代表已经完成真机或在线验收。
 
-[下载](https://github.com/TG-Twilight/c001apk/releases) · [反馈问题](https://github.com/TG-Twilight/c001apk/issues) · [参与开发](docs/DEVELOPMENT.md)
+## Android 安装与构建
 
-</div>
+当前可在 [Android CI](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml) 打开最近一次运行记录，在 **Artifacts** 下载 `c001apk-android-debug`（ZIP 内含 `app-debug.apk`）。**绿色 APK 构建任务只表示成功编译；必须再核对测试任务是否通过。**
 
-## 关于
+Debug 包使用开发签名，不等于正式发布；它与某些历史客户端使用相同应用包名，但签名可能不同，不能直接覆盖安装。卸载前先备份个人数据，否则本地收藏、登录等可能丢失。详见[构建与签名说明](docs/CI.md)。
 
-基于 [c001apk-flutter](https://github.com/bggRGjQaUbCoE/c001apk-flutter) 继续维护，修复 API、完善中文体验，让日常浏览保持轻巧。
+本地开发：Flutter 3.24.5、JDK 17、Android SDK 34。进入 `apps/flutter` 后：
 
-<table align="center">
-  <thead>
-    <tr>
-      <th align="center">浏览内容</th>
-      <th align="center">找到兴趣</th>
-      <th align="center">按你的习惯</th>
-    </tr>
-  </thead>
-  <tbody>
-    <tr>
-      <td align="center">动态、文章、评论、用户空间</td>
-      <td align="center">动态、应用、用户、话题与内容搜索</td>
-      <td align="center">明暗主题、字体大小</td>
-    </tr>
-    <tr>
-      <td align="center">图文详情与图片查看</td>
-      <td align="center">应用、话题及产品详情</td>
-      <td align="center">本地收藏与屏蔽、浏览历史</td>
-    </tr>
-  </tbody>
-</table>
+```sh
+flutter pub get --enforce-lockfile
+flutter analyze --no-pub --no-fatal-infos
+flutter test --no-pub
+flutter build apk --debug --no-pub
+```
 
-## 界面预览（2026-10-16，1.2.5-release）
+## 截图与视觉素材
 
-<p align="center">
-  <img src="docs/media/screenshots/android-home-1.2.5.avif" width="31%" alt="Android 首页：动态列表与主页、关注、我的导航">
-  <img src="docs/media/screenshots/android-article-1.2.5.avif" width="31%" alt="Android 图文详情：文章封面与正文">
-  <img src="docs/media/screenshots/android-settings-1.2.5.avif" width="31%" alt="Android 分类设置：外观、关注、隐私、存储与账号管理">
-</p>
-<p align="center"><sub>Android · 首页 / 图文详情 / 分类设置</sub></p>
+**此处暂不展示截图。** 我们不再使用原维护仓库的首页、文章、设置页或桌面端截图来代表当前版本。待本仓库的新 Android 构建完成实机验收后，使用本项目实际运行的脱敏截图填充。图片要求和文件命名见[截图维护规范](docs/SCREENSHOTS.md)。
 
-<p align="center">
-  <img src="docs/media/screenshots/windows-home-1.2.5.avif" width="96%" alt="Windows 桌面端首页：侧边导航与宽屏内容区域">
-</p>
-<p align="center"><sub>Windows · 桌面端首页</sub></p>
+## 维护范围与计划
 
-<p align="center">
-  <img src="docs/media/screenshots/windows-settings-1.2.5.avif" width="96%" alt="Windows 分类设置：宽窗口下并排显示分类与外观选项">
-</p>
-<p align="center"><sub>Windows · 分类设置与宽窗口布局</sub></p>
+本仓库**优先维护 Android**：保证 CI 测试、字体和排版、设备适配、账号状态切换、更新检查及信息安全。Windows/Linux/iOS 不是目前的发布或测试目标；仓库中保留的部分跨平台源文件不表示提供桌面版支持。
 
-## 下载安装
+开发优先级见 [Android 路线图](docs/ANDROID_ROADMAP.md)。缺陷和功能请求请只发在[本仓库 Issues](https://github.com/Ktclat/c001apk/issues)，**不要转发到原维护仓库**。
 
-正式安装包可从 [Releases](https://github.com/TG-Twilight/c001apk/releases) 获取，也可以参照 [开发指南](docs/DEVELOPMENT.md) 自行构建。
+## 许可与来源
 
-云端构建包可从 [Actions](https://github.com/TG-Twilight/c001apk/actions/workflows/build.yml) 的 Artifacts 下载，平台、签名与手动构建方式见 [云端构建指南](docs/CI.md)。
+本仓库沿用 **GNU Affero General Public License v3.0（AGPL-3.0）**，根目录 [LICENSE](LICENSE) 保持原样。依照许可证要求，保留历史作者署名、版权和第三方许可声明；fork 和改动不改变原作者及素材权利人的著作权。
 
-反复遇到人机验证时，可参照 [从官方酷安导入设备标识](docs/DEVICE_ID_IMPORT.md)。自动识别入口需要包含此功能的新版本，不会自动加入旧发行包。
+本项目以 [TG-Twilight/c001apk](https://github.com/TG-Twilight/c001apk) 的公开源代码为基础，历史来源还包括 c001apk-flutter 及其引用的其他项目。它们是**代码来源与致谢**，不是本项目的用户服务或售后支持渠道。完整信息见 [第三方与版权声明](docs/THIRD_PARTY_NOTICES.md)。
 
-## 开发进度
-
-- [x] 更新公共 API 请求协议、签名与错误处理。
-- [x] 完成现有 Flutter 界面的一轮简体中文汉化。
-- [x] 恢复主要游客浏览流程，为部分受限动态、文章提供公开详情回退。
-- [x] 基本修复账号登录与状态管理，补齐验证码交互。
-- [x] 本地关注与悄悄关注、多账号管理及游客模式切换。
-- [x] 主导航与分类设置调整，新增 c001apk 自身更新检测。
-- [x] 修复评论完成验证后仍无法加载，更新检测改为每次冷启动检查一次。
-- [ ] 继续完善验证码放行与部分账号操作。
-- [ ] Android 迁移到 Kotlin / Jetpack Compose，采用 Material 3 Expressive。
-- [ ] 完善 Flutter 桌面端随窗口尺寸变化的自适应布局与图片保存。
-
-当前重点维护 **Android 与 Windows**，代码仍为 Flutter。Android 包名为 `app.awavenue.c001apk`；Linux 已通过云端 release 构建，iOS `arm64` 未签名 IPA 已随 [1.2.6-release](https://github.com/TG-Twilight/c001apk/releases/tag/1.2.6-release) 提供，安装前需自行签名。Linux / iOS 运行体验仍待验收。新包与旧包独立安装，登录及本地数据不会自动迁移。
-
-> [!NOTE]
-> 部分内容仍受登录、验证码和服务端接口限制，验证码放行与部分账号操作仍需继续完善。Windows 暂不支持应用内直接保存图片，可在浏览器中打开后保存。
-
-## 参与与致谢
-
-欢迎提交 [Issue](https://github.com/TG-Twilight/c001apk/issues) 或 Pull Request。反馈请附平台、版本、复现步骤与脱敏错误信息；开发环境、工程目录及检查命令见 [开发指南](docs/DEVELOPMENT.md)。
-
-感谢 [bggRGjQaUbCoE/c001apk-flutter](https://github.com/bggRGjQaUbCoE/c001apk-flutter) 的开源，以及 [daimiaopeng/coolapk-desktop](https://github.com/daimiaopeng/coolapk-desktop) 的协议调研参考。
-
-本项目沿用 [GNU AGPL v3](LICENSE)，第三方来源与 MIT 许可见 [第三方声明](docs/THIRD_PARTY_NOTICES.md)。本项目与酷安官方无隶属关系，酷安名称、商标及服务内容归相应权利人所有。
+酷安名称、商标、官方表情及服务内容的权利归相应权利人所有。
