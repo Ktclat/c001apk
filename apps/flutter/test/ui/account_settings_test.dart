@@ -154,6 +154,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(GStorage.fontChoice, AppFontChoice.material);
     expect(find.text('当前：Material 默认'), findsOneWidget);
+    // Release ValueListenableBuilder subscriptions before the next test resets
+    // its Hive box; otherwise the next account test can stall on stale frames.
+    await tester.pumpWidget(const SizedBox.shrink());
   });
   Future<void> seedTwoAccounts() async {
     await AccountStore()
