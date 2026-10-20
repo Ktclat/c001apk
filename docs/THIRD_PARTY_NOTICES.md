@@ -1,13 +1,15 @@
 # 第三方声明
 
-本项目保留原有 [LICENSE](../LICENSE) 与上游署名。
+本仓库由 [Ktclat/c001apk](https://github.com/Ktclat/c001apk) 独立维护，保留原有 [AGPL-3.0 LICENSE](../LICENSE)、历史作者署名、贡献归属与各来源许可证。下述记录主要来自继承的上游提交历史，**不表示本 fork 的维护者亲自完成其中的 2026-10-14 至 18 日实机测试**。历史源码出处保留用于遵循著作权和软件许可，不作为本仓库的问题反馈或软件下载入口。
+
+原维护代码出自 [TG-Twilight/c001apk](https://github.com/TG-Twilight/c001apk)，更早的起点为 [c001apk-flutter](https://github.com/bggRGjQaUbCoE/c001apk-flutter)。当前开发、反馈、版本更新均请使用本仓库。
 
 2026-10-16，新增的 `assets/emojis/niuniu_emotion_*.png` 为酷安官方
 Android 16.6.4（2609291）安装包中的 32 张牛牛表情，用于兼容官方表情名称。
 名称以官方 `niuniu_emotion_array` 核对；素材版权归酷安及相应权利人所有，
 不因本项目的 AGPL-3.0 许可证而改变。未引入官方应用代码、账号或用户数据。
 
-本轮会话置顶、取消置顶及删除的接口路径参考
+继承代码中会话置顶、取消置顶及删除的接口路径参考
 [c001apk-compose](https://github.com/bggRGjQaUbCoE/c001apk-compose)
 提交 `d44c471fb38fa600d28fa33b5dd7fcfd6abb7197` 的
 `ui/notification/NoticeViewModel.kt`、`logic/network/ApiService.kt`，
