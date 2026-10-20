@@ -33,7 +33,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = "app.awavenue.c001apk"
+        // Independent fork identity. Keep the namespace above to preserve
+        // existing Flutter/Android native class names.
+        applicationId = "io.github.ktclat.c001apk"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
