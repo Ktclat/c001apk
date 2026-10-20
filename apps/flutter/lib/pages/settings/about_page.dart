@@ -47,8 +47,15 @@ class AboutPage extends StatelessWidget {
           ),
           const UpdateCheckTile(),
           ListTile(
+            leading: const Icon(Icons.gavel_outlined),
+            title: const Text('项目许可证 · AGPL-3.0'),
+            subtitle: const Text('查看本仓库保留的完整 GNU AGPL-3.0 文本'),
+            onTap: () => Utils.launchURL(
+                '${Constants.URL_SOURCE_CODE}/blob/main/LICENSE'),
+          ),
+          ListTile(
             leading: const Icon(Icons.source_outlined),
-            title: const Text('开源许可证'),
+            title: const Text('Flutter 及依赖许可证'),
             onTap: () => showLicensePage(
               context: context,
               applicationName: Constants.APP_NAME,
