@@ -9,7 +9,7 @@
 - [x] 在设置中增加 Android 系统字体与 Material 默认字体切换。
 - [ ] 修复账号管理测试超时并保证全部离线回归通过。
 - [ ] 完成自己仓库的正式签名、Release 流水线及 SHA-256 校验。
-- [ ] 决定是否调整 Android applicationId，迁移旧数据前必须明确告知用户风险。
+- [x] 设置独立 Android applicationId `io.github.ktclat.c001apk`，避免与原项目安装包冲突；声明旧数据不会自动迁移。
 
 ## P1 · Android 体验
 
