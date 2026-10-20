@@ -35,8 +35,11 @@ void main() {
     Get.reset();
   });
   tearDownAll(() async {
-    await Hive.close();
-    await directory.delete(recursive: true);
+    // Scope cleanup to this suite's private box instead of closing any other
+    // boxes opened by widgets during tests. Fail promptly if IO stalls.
+    await GStorage.settings.flush().timeout(const Duration(seconds: 8));
+    await GStorage.settings.close().timeout(const Duration(seconds: 8));
+    await directory.delete(recursive: true).timeout(const Duration(seconds: 8));
   });
   test('reference typography composes app and system text scales', () {
     final theme = applyAppTypography(ThemeData(useMaterial3: true));
