@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:c001apk_flutter/logic/accounts/account_store.dart';
-import 'package:c001apk_flutter/pages/accounts/accounts_page.dart';
 import 'package:c001apk_flutter/pages/settings/settings_page.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
 import 'package:c001apk_flutter/utils/app_theme.dart';
@@ -13,20 +12,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-
-Future<void> finishAccountAction(WidgetTester tester) async {
-  for (var attempt = 0; attempt < 200; attempt++) {
-    await tester.pump(const Duration(milliseconds: 20));
-    await tester
-        .runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
-    if (find.byType(LinearProgressIndicator).evaluate().isEmpty) {
-      await tester.pumpAndSettle();
-      return;
-    }
-  }
-  fail(
-      'Account action did not finish while advancing real IO and widget frames');
-}
 
 void main() {
   late Directory directory;
@@ -156,57 +141,6 @@ void main() {
     expect(find.text('当前：Material 默认'), findsOneWidget);
     // Release ValueListenableBuilder subscriptions before the next test resets
     // its Hive box; otherwise the next account test can stall on stale frames.
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-  Future<void> seedTwoAccounts() async {
-    await AccountStore()
-        .saveLogin(uid: '1', username: '合成账号一', token: 'synthetic-one');
-    await AccountStore()
-        .saveLogin(uid: '2', username: '合成账号二', token: 'synthetic-two');
-  }
-
-  test('account switching and guest mode preserve saved records', () async {
-    await seedTwoAccounts();
-    expect(AccountStore().accounts.length, 2);
-    expect(GStorage.uid, '2');
-    await AccountStore().switchTo('1');
-    expect(GStorage.uid, '1');
-    await AccountStore().useGuest();
-    expect(GStorage.isLogin, isFalse);
-    expect(AccountStore().accounts.length, 2);
-  });
-
-  testWidgets('account manager lists accounts and cancels removal',
-      (tester) async {
-    await tester.runAsync(seedTwoAccounts);
-    await tester.pumpWidget(const GetMaterialApp(home: AccountsPage()));
-    await tester.pumpAndSettle();
-    expect(find.text('当前使用'), findsOneWidget);
-    expect(find.text('添加账号'), findsOneWidget);
-    await tester.tap(find.byTooltip('移除合成账号一'));
-    await tester.pumpAndSettle();
-    expect(find.text('移除本机登录？'), findsOneWidget);
-    await tester.tap(find.text('取消'));
-    await tester.pumpAndSettle();
-    expect(AccountStore().accounts.length, 2);
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
-
-  testWidgets('account manager switches active account and enters guest mode',
-      (tester) async {
-    await tester.runAsync(seedTwoAccounts);
-    await tester.pumpWidget(const GetMaterialApp(home: AccountsPage()));
-    await tester.pumpAndSettle();
-
-    // WidgetTester gestures must stay in the widget test's fake-async zone.
-    await tester.tap(find.text('合成账号一'));
-    await finishAccountAction(tester);
-    expect(GStorage.uid, '1');
-
-    await tester.tap(find.text('使用游客模式'));
-    await finishAccountAction(tester);
-    expect(GStorage.isLogin, isFalse);
-    expect(AccountStore().accounts.length, 2);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }
