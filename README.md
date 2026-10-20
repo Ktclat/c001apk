@@ -20,7 +20,7 @@
 
 当前可在 [Android CI](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml) 打开最近一次运行记录，在 **Artifacts** 下载 `c001apk-android-debug`（ZIP 内含 `app-debug.apk`）。**绿色 APK 构建任务只表示成功编译；必须再核对测试任务是否通过。**
 
-Debug 包使用开发签名，不等于正式发布；它与某些历史客户端使用相同应用包名，但签名可能不同，不能直接覆盖安装。卸载前先备份个人数据，否则本地收藏、登录等可能丢失。详见[构建与签名说明](docs/CI.md)。
+本仓库 Android 应用包名调整为 `io.github.ktclat.c001apk`，可与原项目安装包并存。**包名变更不会迁移旧应用的登录状态、收藏和本地存储**，请按需在旧应用中保留或备份数据；Debug 包使用开发签名，不等于正式发布。详见[构建与签名说明](docs/CI.md)。
 
 本地开发：Flutter 3.24.5、JDK 17、Android SDK 34。进入 `apps/flutter` 后：
 
