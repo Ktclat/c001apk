@@ -157,14 +157,19 @@ void main() {
   });
   testWidgets('account manager marks current account and confirms removal',
       (tester) async {
+    print('[account-test] before fixture saves');
     await tester.runAsync(() async {
       await AccountStore()
-          .saveLogin(uid: '1', username: '合成账号一', token: 'synthetic-one');
+          .saveLogin(uid: '1', username: '合成账号一', token: 'synthetic-one').timeout(const Duration(seconds: 8));
+      print('[account-test] saved account 1');
       await AccountStore()
-          .saveLogin(uid: '2', username: '合成账号二', token: 'synthetic-two');
+          .saveLogin(uid: '2', username: '合成账号二', token: 'synthetic-two').timeout(const Duration(seconds: 8));
+      print('[account-test] saved account 2');
     });
+    print('[account-test] pumping accounts page');
     await tester.pumpWidget(const GetMaterialApp(home: AccountsPage()));
     await tester.pumpAndSettle();
+    print('[account-test] built accounts page');
     expect(find.text('当前使用'), findsOneWidget);
     expect(find.text('添加账号'), findsOneWidget);
     await tester.tap(find.byTooltip('移除合成账号一'));
@@ -172,14 +177,19 @@ void main() {
     expect(find.text('移除本机登录？'), findsOneWidget);
     await tester.tap(find.text('取消'));
     await tester.pumpAndSettle();
+    print('[account-test] cancellation succeeded');
     expect(AccountStore().accounts.length, 2);
     // UI gestures belong to WidgetTester’s fake-async zone. Running a tap
     // inside runAsync while waiting for Hive IO can deadlock this test.
+    print('[account-test] tapping account 1');
     await tester.tap(find.text('合成账号一'));
     await finishAccountAction(tester);
+    print('[account-test] switched to 1');
     expect(GStorage.uid, '1');
+    print('[account-test] tapping guest');
     await tester.tap(find.text('使用游客模式'));
     await finishAccountAction(tester);
+    print('[account-test] guest mode complete');
     expect(GStorage.isLogin, isFalse);
     expect(AccountStore().accounts.length, 2);
     await tester.pumpWidget(const SizedBox.shrink());
