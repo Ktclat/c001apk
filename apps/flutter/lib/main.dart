@@ -114,6 +114,7 @@ class C001APKAPP extends StatelessWidget {
     }
 
     final lightTheme = applyAppTypography(ThemeData(
+      fontFamily: fontChoice.familyForPlatform(defaultTargetPlatform),
       colorScheme: lightColorScheme,
       useMaterial3: true,
       navigationBarTheme: NavigationBarThemeData(
@@ -151,6 +152,7 @@ class C001APKAPP extends StatelessWidget {
       ),
     ), fontChoice: fontChoice);
     final darkTheme = applyAppTypography(ThemeData(
+      fontFamily: fontChoice.familyForPlatform(defaultTargetPlatform),
       colorScheme: darkColorScheme,
       useMaterial3: true,
       navigationBarTheme: NavigationBarThemeData(

@@ -7,24 +7,34 @@ import 'package:flutter/material.dart';
 /// system font changes can take effect when the ROM exposes them to Flutter.
 enum AppFontChoice {
   system,
-  material;
+  material,
+  notoSans;
 
-  static AppFontChoice fromStorage(Object? value) =>
-      value == AppFontChoice.material.index
-          ? AppFontChoice.material
-          : AppFontChoice.system;
+  static const bundledFontFamily = 'C001NotoSans';
+
+  /// Old stored choices 0 and 1 remain valid. New installations use Noto.
+  static AppFontChoice fromStorage(Object? value) => switch (value) {
+        null => AppFontChoice.notoSans,
+        0 => AppFontChoice.system,
+        1 => AppFontChoice.material,
+        2 => AppFontChoice.notoSans,
+        _ => AppFontChoice.system,
+      };
 
   String get label => switch (this) {
-        AppFontChoice.system => '跟随系统（推荐）',
-        AppFontChoice.material => 'Material 默认',
+        AppFontChoice.system => '跟随系统',
+        AppFontChoice.material => 'Material 原版',
+        AppFontChoice.notoSans => '思源黑体 · 清爽（推荐）',
       };
 
   String get description => switch (this) {
-        AppFontChoice.system => '优先使用手机的系统无衬线字体，实际效果取决于设备和系统',
-        AppFontChoice.material => '使用 Flutter 的默认平台字体，便于和原版对比',
+        AppFontChoice.system => '随厂商 ROM 映射，字形与行距可能因手机而不同',
+        AppFontChoice.material => '采用 Flutter/Material 原始字体映射',
+        AppFontChoice.notoSans => '内置标准字重的简体中文黑体，离线显示更一致',
       };
 
   String? familyForPlatform(TargetPlatform platform) {
+    if (this == AppFontChoice.notoSans) return bundledFontFamily;
     if (this == AppFontChoice.material) return null;
     return switch (platform) {
       TargetPlatform.android || TargetPlatform.linux => 'sans-serif',
@@ -41,16 +51,16 @@ enum AppFontChoice {
 /// Chinese text rhythm without changing touch target dimensions.
 ThemeData applyAppTypography(
   ThemeData theme, {
-  AppFontChoice fontChoice = AppFontChoice.system,
+  AppFontChoice fontChoice = AppFontChoice.notoSans,
 }) {
   final fontFamily = fontChoice.familyForPlatform(theme.platform);
   final themedText = fontFamily == null
       ? theme.textTheme
       : theme.textTheme.apply(fontFamily: fontFamily);
   final textTheme = themedText.copyWith(
-    bodyLarge: themedText.bodyLarge?.copyWith(height: 1.5),
-    bodyMedium: themedText.bodyMedium?.copyWith(height: 1.45),
-    bodySmall: themedText.bodySmall?.copyWith(height: 1.4),
+    bodyLarge: themedText.bodyLarge?.copyWith(height: 1.48),
+    bodyMedium: themedText.bodyMedium?.copyWith(height: 1.46),
+    bodySmall: themedText.bodySmall?.copyWith(height: 1.40),
   );
   final primaryTextTheme = fontFamily == null
       ? theme.primaryTextTheme

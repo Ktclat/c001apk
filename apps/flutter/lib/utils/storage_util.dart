@@ -320,7 +320,7 @@ class GStorage {
   }
 
   static AppFontChoice get fontChoice => AppFontChoice.fromStorage(
-      settings.get(SettingsBoxKey.fontChoice, defaultValue: 0));
+      settings.get(SettingsBoxKey.fontChoice));
 
   static Future<void> setFontChoice(AppFontChoice value) =>
       settings.put(SettingsBoxKey.fontChoice, value.index);

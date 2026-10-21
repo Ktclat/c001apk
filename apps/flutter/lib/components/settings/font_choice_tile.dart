@@ -65,12 +65,14 @@ class FontChoiceTile extends StatelessWidget {
                           Text(choice.description),
                           const SizedBox(height: 6),
                           Text(
-                            '中文阅读效果 · 数字 123 ABC',
+                            '中文阅读效果 · 字形清晰，细节自然。123 ABC',
                             style: defaultPreviewStyle?.copyWith(
                               fontFamily: choice.familyForPlatform(platform) ??
                                   defaultPreviewStyle.fontFamily,
-                              fontSize: 16,
-                              height: 1.45,
+                              fontSize: 15,
+                              height: 1.52,
+                              fontWeight: FontWeight.w400,
+                              letterSpacing: 0,
                             ),
                           ),
                         ],
@@ -90,7 +92,8 @@ class FontChoiceTile extends StatelessWidget {
                   const SizedBox(height: 12),
                   Text(
                     '提示：不同 Android 厂商对自定义系统字体的支持不同，'
-                    '部分机型可能显示为同一种字体。字体大小仍可单独调整。',
+                    '思源黑体由应用离线提供；系统字体受手机厂商影响。'
+                    '此前手动选过系统字体的用户可在此切换到新字体。',
                     style: Theme.of(sheetContext).textTheme.bodySmall,
                   ),
                 ],
