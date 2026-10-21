@@ -1,4 +1,5 @@
 import 'package:c001apk_flutter/components/network_image.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:get/get.dart';
@@ -63,7 +64,7 @@ Widget htmlText(
       // HtmlWidget receives its own root text style. Match the font choice
       // used by Material widgets so feeds, articles and replies stay aligned.
       fontFamily:
-          GStorage.fontChoice.familyForPlatform(Theme.of(Get.context!).platform),
+          GStorage.fontChoice.familyForPlatform(defaultTargetPlatform),
       fontSize: fontSize,
       height: 1.5,
       fontWeight: isBold ? FontWeight.bold : FontWeight.normal,

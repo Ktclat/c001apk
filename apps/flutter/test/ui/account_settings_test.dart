@@ -1,11 +1,15 @@
 import 'dart:io';
 
 import 'package:c001apk_flutter/pages/settings/settings_page.dart';
+import 'package:c001apk_flutter/components/html_text.dart';
+import 'package:c001apk_flutter/components/settings/font_choice_tile.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
 import 'package:c001apk_flutter/utils/app_theme.dart';
 import 'package:c001apk_flutter/pages/home/app/app_list_page.dart';
 import 'package:c001apk_flutter/pages/home/return_top_controller.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -123,27 +127,42 @@ void main() {
     expect(AppFontChoice.fromStorage(100), AppFontChoice.system);
     expect(AppFontChoice.fromStorage('invalid'), AppFontChoice.system);
     await GStorage.setFontChoice(AppFontChoice.material);
+    // Real database IO is tested outside WidgetTester's fake async zone.
+    await GStorage.settings.flush();
     expect(GStorage.fontChoice, AppFontChoice.material);
   });
-  testWidgets('the font picker changes its saved choice', (tester) async {
+  test('feed HTML text follows the chosen Android font', () async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.android;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    expect((htmlText('中文动态') as HtmlWidget).textStyle?.fontFamily,
+        'sans-serif');
+    await GStorage.setFontChoice(AppFontChoice.material);
+    expect((htmlText('中文动态') as HtmlWidget).textStyle?.fontFamily, isNull);
+  });
+  testWidgets('the font picker reports a selection without disk IO',
+      (tester) async {
     tester.view.physicalSize = const Size(400, 820);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-    await tester.pumpWidget(const GetMaterialApp(
-        home: SettingsDetailPage(section: SettingsSection.appearance)));
+    AppFontChoice? chosen;
+    await tester.pumpWidget(GetMaterialApp(
+        home: Scaffold(
+            body: FontChoiceTile(onChoiceSelected: (value) {
+      chosen = value;
+    }))));
     await tester.pumpAndSettle();
     await tester.tap(find.text('界面字体'));
     await tester.pumpAndSettle();
     expect(find.text('跟随系统（推荐）'), findsOneWidget);
     await tester.tap(find.text('Material 默认'));
     await tester.pumpAndSettle();
-    // The widget must close without waiting for Hive's real disk event loop.
-    // Persistence is covered separately outside WidgetTester's fake async.
-    expect(GStorage.fontChoice, AppFontChoice.material);
-    expect(find.text('当前：Material 默认'), findsOneWidget);
-    // Release ValueListenableBuilder subscriptions before the next test resets
-    // its Hive box; otherwise the next account test can stall on stale frames.
+    // The sheet must close without running Hive's asynchronous filesystem
+    // writer in a simulated async zone. Persistence is tested above.
+    expect(chosen, AppFontChoice.material);
+    expect(GStorage.fontChoice, AppFontChoice.system);
+    expect(find.text('Material 默认'), findsNothing);
+    // Release any ValueListenableBuilder subscriptions before teardown.
     await tester.pumpWidget(const SizedBox.shrink());
   });
 }

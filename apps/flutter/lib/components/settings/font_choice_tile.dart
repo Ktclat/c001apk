@@ -8,7 +8,11 @@ import '../../utils/storage_util.dart';
 
 /// Offers an explicit system-font option and an in-place comparison preview.
 class FontChoiceTile extends StatelessWidget {
-  const FontChoiceTile({super.key});
+  const FontChoiceTile({super.key, this.onChoiceSelected});
+
+  /// Optional synchronous selection handler for controlled widget tests or
+  /// alternative storage. The regular app writes to Hive when omitted.
+  final ValueChanged<AppFontChoice>? onChoiceSelected;
 
   @override
   Widget build(BuildContext context) {
@@ -75,7 +79,11 @@ class FontChoiceTile extends StatelessWidget {
                         if (value == null) return;
                         // Hive publishes the new value synchronously. Do not
                         // hold the sheet open while waiting for disk IO.
-                        unawaited(GStorage.setFontChoice(value));
+                        if (onChoiceSelected != null) {
+                          onChoiceSelected!(value);
+                        } else {
+                          unawaited(GStorage.setFontChoice(value));
+                        }
                         Navigator.of(sheetContext).pop();
                       },
                     ),
