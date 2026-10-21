@@ -32,7 +32,8 @@ class _MainPageState extends State<MainPage> {
   late final MainController _mainController = Get.put(MainController());
   var _contrller = PageController();
   bool _resetting = false;
-  bool _dockVisible = true;
+  // Scroll toggles this notifier without rebuilding the image-heavy PageView.
+  final ValueNotifier<bool> _dockVisible = ValueNotifier<bool>(true);
   double _scrollTravel = 0;
 
   /// Hide on a deliberate downward drag and reappear on upward scrolling.
@@ -51,9 +52,9 @@ class _MainPageState extends State<MainPage> {
       if (_scrollTravel.sign != delta.sign) _scrollTravel = 0;
       _scrollTravel = (_scrollTravel + delta).clamp(-80.0, 80.0);
       if (_scrollTravel >= 28 && _dockVisible) {
-        setState(() => _dockVisible = false);
+        _dockVisible.value = false;
       } else if (_scrollTravel <= -20 && !_dockVisible) {
-        setState(() => _dockVisible = true);
+        _dockVisible.value = true;
       }
     }
     // Never swallow notifications: refresh indicators and nested tabs
@@ -71,7 +72,7 @@ class _MainPageState extends State<MainPage> {
 
   void _sessionChanged() {
     if (!mounted || _resetting) return;
-    _dockVisible = true;
+    _dockVisible.value = true;
     _scrollTravel = 0;
     setState(() => _resetting = true);
     // Unmount old account pages for a complete frame before reusing the
@@ -89,6 +90,7 @@ class _MainPageState extends State<MainPage> {
   @override
   void dispose() {
     AccountStore.changes.removeListener(_sessionChanged);
+    _dockVisible.dispose();
     _indexSctream.close();
     _contrller.dispose();
     Get.delete<ReturnTopController>(tag: 'home');
@@ -236,34 +238,41 @@ class _MainPageState extends State<MainPage> {
                                   EdgeInsets.symmetric(horizontal: sideInset),
                               child: Center(
                                 heightFactor: 1,
-                                child: AnimatedSlide(
-                                  duration: const Duration(milliseconds: 180),
-                                  curve: Curves.easeOutCubic,
-                                  offset: _dockVisible
-                                      ? Offset.zero
-                                      : const Offset(0, 1.5),
-                                  child: AnimatedOpacity(
-                                    duration: const Duration(milliseconds: 150),
-                                    opacity: _dockVisible ? 1 : 0,
-                                    child: IgnorePointer(
-                                      ignoring: !_dockVisible,
-                                      child: ExcludeSemantics(
-                                        excluding: !_dockVisible,
-                                        child: SizedBox(
-                                          width: FloatingTabBar.width,
-                                          child: StreamBuilder<int>(
-                                            initialData: _selectedIndex,
-                                            stream: _indexSctream.stream,
-                                            builder: (_, snapshot) =>
-                                                FloatingTabBar(
-                                              height: dockHeight,
-                                              destinations: barDestinations,
-                                              selectedIndex:
-                                                  snapshot.data ?? 0,
-                                              onDestinationSelected:
-                                                  onDestinationSelected,
-                                            ),
-                                          ),
+                                child: ValueListenableBuilder<bool>(
+                                  valueListenable: _dockVisible,
+                                  // Keep the actual dock subtree intact while
+                                  // animating visibility: avoid feed rebuilds.
+                                  child: SizedBox(
+                                    width: FloatingTabBar.width,
+                                    child: StreamBuilder<int>(
+                                      initialData: _selectedIndex,
+                                      stream: _indexSctream.stream,
+                                      builder: (_, snapshot) => FloatingTabBar(
+                                        height: dockHeight,
+                                        destinations: barDestinations,
+                                        selectedIndex: snapshot.data ?? 0,
+                                        onDestinationSelected:
+                                            onDestinationSelected,
+                                      ),
+                                    ),
+                                  ),
+                                  builder: (context, visible, dock) =>
+                                      AnimatedSlide(
+                                    duration:
+                                        const Duration(milliseconds: 180),
+                                    curve: Curves.easeOutCubic,
+                                    offset: visible
+                                        ? Offset.zero
+                                        : const Offset(0, 1.5),
+                                    child: AnimatedOpacity(
+                                      duration:
+                                          const Duration(milliseconds: 150),
+                                      opacity: visible ? 1 : 0,
+                                      child: IgnorePointer(
+                                        ignoring: !visible,
+                                        child: ExcludeSemantics(
+                                          excluding: !visible,
+                                          child: dock!,
                                         ),
                                       ),
                                     ),
@@ -297,7 +306,7 @@ class _MainPageState extends State<MainPage> {
   void onDestinationSelected(int index) {
     if (_resetting || !_contrller.hasClients) return;
     _scrollTravel = 0;
-    if (!_dockVisible) setState(() => _dockVisible = true);
+    _dockVisible.value = true;
     if (index == 0 && _selectedIndex == 0) {
       _pageScrollController.setIndex(998);
     } else if (index == 1 && _selectedIndex == 1) {

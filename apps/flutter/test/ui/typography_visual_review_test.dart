@@ -368,6 +368,69 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('large accessibility text keeps compact, reachable targets',
+      (tester) async {
+    tester.view.physicalSize = const Size(320, 780);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    var selectedIndex = 0;
+    const destinations = <NavigationDestination>[
+      NavigationDestination(
+        icon: Icon(Icons.home_outlined),
+        selectedIcon: Icon(Icons.home),
+        label: '主页',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.feed_outlined),
+        selectedIcon: Icon(Icons.feed),
+        label: '关注',
+      ),
+      NavigationDestination(
+        icon: Icon(Icons.person_outline),
+        selectedIcon: Icon(Icons.person),
+        label: '我的',
+      ),
+    ];
+    await tester.pumpWidget(GetMaterialApp(
+      home: Scaffold(
+        body: MediaQuery(
+          data: const MediaQueryData(
+            textScaler: TextScaler.linear(2.0),
+          ),
+          child: StatefulBuilder(builder: (context, setState) {
+            return Center(
+              child: FloatingTabBar(
+                height: FloatingTabBar.heightFor(context),
+                destinations: destinations,
+                selectedIndex: selectedIndex,
+                onDestinationSelected: (next) {
+                  setState(() => selectedIndex = next);
+                },
+              ),
+            );
+          }),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    final dock = tester.getRect(find.byType(FloatingTabBar));
+    expect(dock.width, 268);
+    expect(dock.height, 72);
+    expect(find.byType(NavigationBar), findsNothing);
+    for (final label in ['主页', '关注', '我的']) {
+      final rect = tester.getRect(
+          find.byKey(ValueKey('floating-tab-hit-$label')));
+      expect(rect.width, greaterThanOrEqualTo(48));
+      expect(rect.height, greaterThanOrEqualTo(48));
+    }
+    await tester.tap(find.byKey(const ValueKey('floating-tab-hit-我的')));
+    await tester.pumpAndSettle();
+    expect(selectedIndex, 2);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('large accessibility text fits narrow Chinese UI',
       (tester) async {
     tester.view.physicalSize = const Size(320, 800);

@@ -289,8 +289,12 @@ void main() {
       (tester) async {
     tester.view.physicalSize = const Size(390, 850);
     tester.view.devicePixelRatio = 1;
+    // Simulate a gesture-navigation device. Screenshot defects were visible
+    // specifically with a bottom system inset on a tall phone.
+    tester.view.viewPadding = const FakeViewPadding(bottom: 24);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
     await tester.runAsync(
         () => GStorage.setFloatingTabBar(false));
     await tester.pumpWidget(const C001APKAPP());
@@ -308,6 +312,8 @@ void main() {
     final floatingRect = tester.getRect(find.byType(FloatingTabBar));
     expect(floatingRect.width, lessThanOrEqualTo(280));
     expect(floatingRect.height, lessThanOrEqualTo(72));
+    expect(floatingRect.bottom, lessThanOrEqualTo(850 - 24 - 8),
+        reason: 'Dock must clear the Android gesture navigation inset');
     expect((floatingRect.center.dx - 195).abs(), lessThan(1));
     expect(floatingRect.left, greaterThan(30));
     expect(floatingRect.right, lessThan(360));
