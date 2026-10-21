@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'dart:typed_data';
 
 import 'package:c001apk_flutter/components/html_text.dart';
 import 'package:c001apk_flutter/utils/app_theme.dart';
@@ -7,6 +8,7 @@ import 'package:c001apk_flutter/utils/reading_preset.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
@@ -19,6 +21,23 @@ void main() {
     temporary = await Directory.systemTemp.createTemp('noto-ui-review-');
     Hive.init(temporary.path);
     GStorage.settings = await Hive.openBox<dynamic>('typography-review');
+    // flutter_test normally uses Ahem (square placeholder glyphs). Load the
+    // actual bundled Chinese OTF files before taking the visual screenshot,
+    // otherwise a green snapshot test proves nothing about font quality.
+    final loader = FontLoader(AppFontChoice.bundledFontFamily);
+    for (final name in [
+      'Regular',
+      'Medium',
+      'Bold',
+    ]) {
+      final path = 'assets/fonts/NotoSansCJKsc-$name.otf';
+      expect(File(path).existsSync(), isTrue,
+          reason: 'Missing pinned font: run bash tools/fetch_fonts.sh');
+      loader.addFont(File(path).readAsBytes().then((bytes) {
+        return ByteData.sublistView(bytes);
+      }));
+    }
+    await loader.load();
   });
   setUp(() async {
     await GStorage.settings.clear();
