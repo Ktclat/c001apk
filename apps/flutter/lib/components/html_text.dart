@@ -9,7 +9,34 @@ import '../utils/extensions.dart';
 import '../utils/storage_util.dart';
 import '../utils/utils.dart';
 
-enum HtmlTextRole { normal, feedBody, feedTitle, articleTitle, replyBody }
+enum HtmlTextRole {
+  normal,
+  feedBody,
+  feedTitle,
+  articleBody,
+  articleTitle,
+  replyBody,
+}
+
+
+/// Render simple Markdown bold and normalize excessive empty paragraphs.
+/// HTML links and rich inline content remain intact.
+String normalizePostMarkup(String text) => text
+    .replaceAll('\r\n', '\n')
+    .replaceAll('\r', '\n')
+    .replaceAll(RegExp(r'\n(?:[ \t]*\n){2,}'), '\n\n')
+    .replaceAllMapped(
+      RegExp(r'\*\*([^*<>\n]+)\*\*'),
+      (match) => '<strong>' + match.group(1)! + '</strong>',
+    )
+    .replaceAll('\n', '<br/>');
+
+Color? _bodyInk(HtmlTextRole role) {
+  if (role == HtmlTextRole.normal) return null;
+  final context = Get.context;
+  if (context == null || !context.mounted) return null;
+  return Theme.of(context).colorScheme.onSurface.withOpacity(0.92);
+}
 
 Widget htmlText(
   String html, {
@@ -21,19 +48,16 @@ Widget htmlText(
   Function? onShowTotalReply,
   Function? onViewFan,
 }) {
-  String? htmlConvert;
+  // Paragraphs must be normalized even when custom emojis are disabled.
+  // The old renderer could show literal **Markdown markers** in news posts.
+  var formatted = normalizePostMarkup(html);
   if (GStorage.showEmoji) {
-    RegExp regExp = RegExp('\\[[^\\]]+\\]');
-    htmlConvert = html.replaceAll('\n', '<br/>').replaceAllMapped(
-      regExp,
+    formatted = formatted.replaceAllMapped(
+      RegExp(r'\[[^\]]+\]'),
       (match) {
-        String matchedString = match.group(0) ?? '';
-        String? src = EmojiUtil.emojiMap[matchedString];
-        if (!src.isNullOrEmpty) {
-          return '<img src="$src">';
-        } else {
-          return matchedString;
-        }
+        final marker = match.group(0) ?? '';
+        final src = EmojiUtil.emojiMap[marker];
+        return src == null || src.isEmpty ? marker : '<img src="$src">';
       },
     );
   }
@@ -41,7 +65,7 @@ Widget htmlText(
   final reading = GStorage.readingPreset;
 
   return HtmlWidget(
-    htmlConvert ?? html,
+    formatted,
     onTapUrl: (url) {
       if (url.isEmpty) {
         if (onClick != null) {
@@ -70,9 +94,14 @@ Widget htmlText(
       // used by Material widgets so feeds, articles and replies stay aligned.
       fontFamily:
           GStorage.fontChoice.familyForPlatform(defaultTargetPlatform),
+      fontFamilyFallback: const ['sans-serif'],
+      locale: const Locale('zh', 'CN'),
+      color: _bodyInk(role),
+      letterSpacing: 0,
       fontSize: switch (role) {
         HtmlTextRole.feedBody => reading.bodySize,
         HtmlTextRole.feedTitle => reading.titleSize,
+        HtmlTextRole.articleBody => reading.articleBodySize,
         HtmlTextRole.articleTitle => reading.articleTitleSize,
         HtmlTextRole.replyBody => reading.replySize,
         HtmlTextRole.normal => fontSize,
@@ -80,6 +109,7 @@ Widget htmlText(
       height: switch (role) {
         HtmlTextRole.feedBody => reading.bodyHeight,
         HtmlTextRole.feedTitle => reading.titleHeight,
+        HtmlTextRole.articleBody => reading.bodyHeight,
         HtmlTextRole.articleTitle => reading.titleHeight,
         HtmlTextRole.replyBody => reading.bodyHeight,
         HtmlTextRole.normal => 1.5,
@@ -87,6 +117,7 @@ Widget htmlText(
       fontWeight: switch (role) {
         HtmlTextRole.feedBody => FontWeight.w400,
         HtmlTextRole.feedTitle => reading.titleWeight,
+        HtmlTextRole.articleBody => FontWeight.w400,
         HtmlTextRole.articleTitle => reading.titleWeight,
         HtmlTextRole.replyBody => FontWeight.w400,
         HtmlTextRole.normal => isBold ? FontWeight.bold : FontWeight.w400,
@@ -96,6 +127,10 @@ Widget htmlText(
       switch (element.localName) {
         case 'a':
           return {'text-decoration': 'none'};
+        case 'strong':
+        case 'b':
+          // Avoid excessively dark synthetic bold for Markdown emphasis.
+          return {'font-weight': '500'};
       }
       return null;
     },

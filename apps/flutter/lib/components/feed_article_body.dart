@@ -32,7 +32,7 @@ Widget feedArticleBody(
           },
           child: htmlText(
             data.message.orEmpty,
-            role: HtmlTextRole.feedBody,
+            role: HtmlTextRole.articleBody,
           ),
         ),
       );
