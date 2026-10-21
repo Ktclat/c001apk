@@ -269,9 +269,8 @@ void main() {
             child: Stack(
               children: [
               Positioned.fill(
-                bottom: 102,
                 child: ListView(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 114),
                   children: [
                     Text('动态', style: theme.textTheme.headlineSmall),
                     const SizedBox(height: 12),
@@ -290,12 +289,35 @@ void main() {
                               role: HtmlTextRole.feedBody,
                             ),
                             const SizedBox(height: 12),
-                            Text('以下空白区域为导航预留，内容不会被遮挡。',
+                            Text('底部内容可以滑动到悬浮栏上方。',
                                 style: theme.textTheme.bodySmall),
                           ],
                         ),
                       ),
                     ),
+                    const SizedBox(height: 12),
+                    for (var index = 0; index < 4; index++) ...[
+                      Card(
+                        elevation: 0,
+                        child: Padding(
+                          padding: const EdgeInsets.all(18),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('精选动态 #${index + 1}',
+                                  style: theme.textTheme.titleMedium),
+                              const SizedBox(height: 7),
+                              htmlText(
+                                '这是一条用于检查浮层和中文正文关系的合成内容。'
+                                '滚动到列表末尾时，所有文字都应能被完整阅读。',
+                                role: HtmlTextRole.feedBody,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ],
                 ),
               ),

@@ -102,19 +102,19 @@ class _AppListPageState extends State<AppListPage>
                   padding: EdgeInsets.only(
                       bottom: FloatingNavigationInset.of(context)),
                   child: SlideTransition(
-                  position: Tween<Offset>(
-                    begin: const Offset(0, 2),
-                    end: const Offset(0, 0),
-                  ).animate(CurvedAnimation(
-                    parent: _fabAnimationCtr!,
-                    curve: Curves.easeInOut,
-                  )),
-                  child: FloatingActionButton(
-                    heroTag: null,
-                    onPressed: () => Get.toNamed('/appUpdate'),
-                    tooltip: '更新',
-                    child: const Icon(Icons.update),
-                  ),
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 2),
+                      end: const Offset(0, 0),
+                    ).animate(CurvedAnimation(
+                      parent: _fabAnimationCtr!,
+                      curve: Curves.easeInOut,
+                    )),
+                    child: FloatingActionButton(
+                      heroTag: null,
+                      onPressed: () => Get.toNamed('/appUpdate'),
+                      tooltip: '更新',
+                      child: const Icon(Icons.update),
+                    ),
                 ),
                 )
               : null,

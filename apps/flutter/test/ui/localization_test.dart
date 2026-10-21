@@ -307,14 +307,41 @@ void main() {
     expect(floatingRect.left, greaterThan(0));
     expect(floatingRect.right, lessThan(390));
     final rootPage = tester.getRect(find.byType(PageView).first);
-    expect(rootPage.bottom, lessThan(floatingRect.top),
-        reason: 'The floating tab must not cover content or scroll gestures');
+    expect(rootPage.bottom, greaterThan(floatingRect.bottom - 1),
+        reason: 'Root pages should paint underneath a genuinely floating tab');
 
     await tester.tap(find.widgetWithText(NavigationDestination, '关注'));
     await tester.pumpAndSettle();
     expect(find.text('本地关注动态'), findsOneWidget);
     expect(tester.widget<NavigationBar>(find.byType(NavigationBar))
         .selectedIndex, 1);
+
+    // Actual root scrollables add enough trailing space to scroll their
+    // final card ABOVE the overlaid dock without creating a dead page band.
+    await tester.tap(find.widgetWithText(NavigationDestination, '我的'));
+    await tester.pumpAndSettle();
+    final myScroll = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView).last);
+    final myPadding = myScroll.slivers.whereType<SliverPadding>().first.padding
+        as EdgeInsets;
+    expect(myPadding.bottom, greaterThan(floatingRect.height));
+    await tester.tap(find.widgetWithText(NavigationDestination, '关注'));
+    await tester.pumpAndSettle();
+
+    // An IME must hide the dock (and not suddenly show the classic bar).
+    tester.view.viewInsets = const FakeViewPadding(bottom: 260);
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingTabBar), findsNothing);
+    expect(find.byType(NavigationBar), findsNothing);
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingTabBar), findsOneWidget);
+
+    // Large portrait tablets also use the rail rather than a huge dock.
+    tester.view.physicalSize = const Size(900, 1200);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(find.byType(FloatingTabBar), findsNothing);
 
     // Tablets/landscape retain the original NavigationRail.
     tester.view.physicalSize = const Size(1200, 800);

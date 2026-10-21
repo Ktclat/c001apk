@@ -192,7 +192,7 @@ class _SettingsDetailPageState extends State<SettingsDetailPage> {
             const SwitchItem(
               icon: Icons.layers_outlined,
               title: '悬浮 Tab 导航',
-              subtitle: '底部主页／关注／我的采用悬浮胶囊样式，横屏仍显示侧栏',
+              subtitle: '圆角浮动底栏，键盘出现时隐藏，平板使用侧栏',
               boxKey: SettingsBoxKey.floatingTabBar,
               defaultValue: false,
             ),

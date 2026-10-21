@@ -57,41 +57,41 @@ class FloatingTabBar extends StatelessWidget {
         explicitChildNodes: true,
         label: '底部导航',
         child: DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(34),
-          boxShadow: [
-            BoxShadow(
-              color: colors.shadow.withOpacity(0.10),
-              blurRadius: 18,
-              spreadRadius: -4,
-              offset: const Offset(0, 6),
-            ),
-          ],
-        ),
-        child: Material(
-          elevation: 0,
-          shape: RoundedRectangleBorder(
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(34),
-            side: BorderSide(
-              width: 0.6,
-              color: colors.outlineVariant.withOpacity(0.32),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow.withOpacity(0.10),
+                blurRadius: 18,
+                spreadRadius: -4,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Material(
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(34),
+              side: BorderSide(
+                width: 0.6,
+                color: colors.outlineVariant.withOpacity(0.32),
+              ),
+            ),
+            clipBehavior: Clip.antiAlias,
+            color: colors.surfaceContainerHigh,
+            child: NavigationBar(
+              height: height,
+              elevation: 0,
+              backgroundColor: Colors.transparent,
+              indicatorColor: colors.secondaryContainer,
+              destinations: destinations,
+              selectedIndex: selectedIndex,
+              onDestinationSelected: onDestinationSelected,
+              labelBehavior:
+                  NavigationDestinationLabelBehavior.onlyShowSelected,
             ),
           ),
-          clipBehavior: Clip.antiAlias,
-          color: colors.surfaceContainerHigh,
-          child: NavigationBar(
-          height: height,
-          elevation: 0,
-          backgroundColor: Colors.transparent,
-          indicatorColor: colors.secondaryContainer,
-          destinations: destinations,
-          selectedIndex: selectedIndex,
-          onDestinationSelected: onDestinationSelected,
-          labelBehavior:
-              NavigationDestinationLabelBehavior.onlyShowSelected,
-          ),
         ),
-      ),
       ),
     );
   }

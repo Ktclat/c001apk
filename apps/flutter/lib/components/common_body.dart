@@ -92,60 +92,60 @@ Widget buildBody(
           as List<Datum>;
       return Builder(
         builder: (context) => ListView.separated(
-        controller: commonController.scrollController,
-        physics: AlwaysScrollableScrollPhysics(
-          parent: isReply2Reply
-              ? const ClampingScrollPhysics()
-              : const BouncingScrollPhysics(),
-        ),
-        padding: EdgeInsets.only(
-            left: isReply2Reply ? 0 : 10,
-            top: isReply2Reply ? 0 : 10,
-            right: isReply2Reply ? 0 : 10,
-            bottom: (isReply2Reply ? 0 : 10) +
-                MediaQuery.paddingOf(context).bottom +
-                FloatingNavigationInset.of(context)),
-        itemCount: dataList.length + 1 + (leading == null ? 0 : 1),
-        itemBuilder: (_, index) {
-          if (leading != null) {
-            if (index == 0) return leading;
-            index--;
-          }
-          if (index == dataList.length) {
-            if (!commonController.isEnd && !commonController.isLoading) {
-              commonController.setFooterState(LoadingState.loading());
-              commonController.onGetData(false);
+          controller: commonController.scrollController,
+          physics: AlwaysScrollableScrollPhysics(
+            parent: isReply2Reply
+                ? const ClampingScrollPhysics()
+                : const BouncingScrollPhysics(),
+          ),
+          padding: EdgeInsets.only(
+              left: isReply2Reply ? 0 : 10,
+              top: isReply2Reply ? 0 : 10,
+              right: isReply2Reply ? 0 : 10,
+              bottom: (isReply2Reply ? 0 : 10) +
+                  MediaQuery.paddingOf(context).bottom +
+                  FloatingNavigationInset.of(context)),
+          itemCount: dataList.length + 1 + (leading == null ? 0 : 1),
+          itemBuilder: (_, index) {
+            if (leading != null) {
+              if (index == 0) return leading;
+              index--;
             }
-            return Obx(
-                () => footerWidget(commonController.footerState.value, () {
-                      commonController.isEnd = false;
-                      commonController.setFooterState(LoadingState.loading());
-                      commonController.onGetData(false);
-                    }));
-          } else {
-            if (itemBuilder != null) return itemBuilder(dataList[index]);
-            return itemCard(
-              dataList[index],
-              isHomeCard: isHomeCard,
-              isReply2Reply: isReply2Reply,
-              isTopReply: isReply2Reply && index == 0,
-              uid: uid,
-              onBlock: commonController.onBlock,
-              onReply: onReply,
-              onDelete: commonController.postLikeDeleteFollow,
-              onDeleteNoti: (id) => commonController.postLikeDeleteFollow(
-                id,
-                null,
-                isNoti: true,
-              ),
-              onLike: commonController.onLike,
-              onPM: commonController.onPM,
-            );
-          }
-        },
-        separatorBuilder: (_, index) => isReply2Reply
-            ? const Divider(height: 1)
-            : const SizedBox(height: 10),
+            if (index == dataList.length) {
+              if (!commonController.isEnd && !commonController.isLoading) {
+                commonController.setFooterState(LoadingState.loading());
+                commonController.onGetData(false);
+              }
+              return Obx(
+                  () => footerWidget(commonController.footerState.value, () {
+                        commonController.isEnd = false;
+                        commonController.setFooterState(LoadingState.loading());
+                        commonController.onGetData(false);
+                      }));
+            } else {
+              if (itemBuilder != null) return itemBuilder(dataList[index]);
+              return itemCard(
+                dataList[index],
+                isHomeCard: isHomeCard,
+                isReply2Reply: isReply2Reply,
+                isTopReply: isReply2Reply && index == 0,
+                uid: uid,
+                onBlock: commonController.onBlock,
+                onReply: onReply,
+                onDelete: commonController.postLikeDeleteFollow,
+                onDeleteNoti: (id) => commonController.postLikeDeleteFollow(
+                  id,
+                  null,
+                  isNoti: true,
+                ),
+                onLike: commonController.onLike,
+                onPM: commonController.onPM,
+              );
+            }
+          },
+          separatorBuilder: (_, index) => isReply2Reply
+              ? const Divider(height: 1)
+              : const SizedBox(height: 10),
         ),
       );
   }
