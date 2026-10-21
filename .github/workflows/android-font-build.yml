@@ -47,6 +47,13 @@ jobs:
         run: timeout 150s flutter test --no-pub test/ui/accounts_page_test.dart --reporter expanded
       - name: Offline regression tests
         run: timeout 420s flutter test --no-pub --reporter expanded
+      - name: Upload synthetic typography review
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: c001apk-typography-review
+          path: apps/flutter/build/review/noto-typography.png
+          if-no-files-found: error
+          retention-days: 14
 
   android-debug:
     name: Build Android debug and profile APKs
