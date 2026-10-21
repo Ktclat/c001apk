@@ -87,7 +87,7 @@ void main() {
                       children: [
                         Row(
                           children: [
-                            const CircleAvatar(child: Icon(Icons.person_outline)),
+                            const CircleAvatar(child: Text('科')),
                             const SizedBox(width: 10),
                             Expanded(
                               child: Column(
@@ -195,7 +195,10 @@ void main() {
       final output = File('build/review/noto-typography.png');
       await output.parent.create(recursive: true);
       await output.writeAsBytes(bytes!.buffer.asUint8List());
-      expect(await output.length(), greaterThan(10000));
+      // Ahem's block-shaped test glyphs produced a ~13 KB image, while
+      // actual Chinese glyph outlines yield much more image detail.
+      expect(await output.length(), greaterThan(40000),
+          reason: 'Preview must render actual font glyphs, not Ahem boxes');
       image.dispose();
     });
     await tester.pumpWidget(const SizedBox.shrink());
