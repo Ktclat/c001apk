@@ -136,6 +136,7 @@ class GStorage {
     favFeed = await Hive.openBox('favFeed');
     blackList = await Hive.openBox('blackList');
     settings = await Hive.openBox('settings');
+    await migrateTypographyV2();
 
     if (installTime.isEmpty) {
       setInstallTime(DateTime.now().millisecondsSinceEpoch.toString());
@@ -148,6 +149,21 @@ class GStorage {
     GlobalData().username = username;
     GlobalData().token = token;
     await AccountStore().initialize();
+  }
+
+  /// This fork's new default is a bundled, consistent Chinese typeface.
+  /// Apply the redesign once on upgrade, then preserve every user font
+  /// choice they make subsequently (including system and Material).
+  static Future<void> migrateTypographyV2() async {
+    if (settings.get(SettingsBoxKey.typographyV2, defaultValue: false) ==
+        true) {
+      return;
+    }
+    await settings.putAll({
+      SettingsBoxKey.fontChoice: AppFontChoice.notoSans.index,
+      SettingsBoxKey.readingPreset: ReadingPreset.comfortable.index,
+      SettingsBoxKey.typographyV2: true,
+    });
   }
 
   static void regAdapter() {
@@ -582,6 +598,7 @@ class SettingsBoxKey {
       fontScale = 'fontScale',
       fontChoice = 'fontChoice',
       readingPreset = 'readingPreset',
+      typographyV2 = 'typographyV2Migrated',
       followType = 'followType',
       imageQuality = 'imageQuality',
       imageDim = 'imageDim',
