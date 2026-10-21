@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart' hide Response;
 
+import '../../components/floating_tab_bar.dart';
 import '../../components/cards/message_first_card.dart';
 import '../../components/cards/message_header_card.dart';
 import '../../components/cards/message_second_card.dart';
@@ -101,7 +102,8 @@ class _MessagePageState extends State<MessagePage>
                 ),
                 slivers: [
                   SliverPadding(
-                    padding: const EdgeInsets.all(10),
+                    padding: EdgeInsets.fromLTRB(
+                        10, 10, 10, 10 + FloatingNavigationInset.of(context)),
                     sliver: SliverList.separated(
                       itemCount: GlobalData().isLogin ? 7 : 6,
                       itemBuilder: (context, itemIndex) {

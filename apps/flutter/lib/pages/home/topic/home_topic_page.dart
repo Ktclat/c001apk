@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
+import '../../../components/floating_tab_bar.dart';
 import '../../../pages/carousel/carousel_page.dart';
 import '../../../pages/home/topic/controller.dart';
 import '../../../pages/home/home_page.dart' show TabType;
@@ -52,6 +53,8 @@ class _HomeTopicPageState extends State<HomeTopicPage>
             Expanded(
               flex: 22,
               child: ListView.builder(
+                padding: EdgeInsets.only(
+                    bottom: FloatingNavigationInset.of(context)),
                 physics: const AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics(),
                 ),

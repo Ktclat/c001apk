@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:get/get.dart';
 
+import '../../../components/floating_tab_bar.dart';
 import '../../../pages/home/app/app_list_controller.dart';
 import '../../../pages/home/return_top_controller.dart';
 import '../../../utils/extensions.dart';
@@ -97,7 +98,10 @@ class _AppListPageState extends State<AppListPage>
         },
         child: Scaffold(
           floatingActionButton: _checkUpdate
-              ? SlideTransition(
+              ? Padding(
+                  padding: EdgeInsets.only(
+                      bottom: FloatingNavigationInset.of(context)),
+                  child: SlideTransition(
                   position: Tween<Offset>(
                     begin: const Offset(0, 2),
                     end: const Offset(0, 0),
@@ -111,10 +115,13 @@ class _AppListPageState extends State<AppListPage>
                     tooltip: '更新',
                     child: const Icon(Icons.update),
                   ),
+                ),
                 )
               : null,
           body: ListView.builder(
             controller: _scrollController,
+            padding: EdgeInsets.only(
+                bottom: FloatingNavigationInset.of(context)),
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),

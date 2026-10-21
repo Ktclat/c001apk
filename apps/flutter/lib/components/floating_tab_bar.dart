@@ -1,5 +1,27 @@
 import 'package:flutter/material.dart';
 
+/// Communicates the floating dock's scroll clearance to the root pages.
+/// The root PageView itself stays full-bleed behind the dock. Only actual
+/// scrollables and floating action buttons opt into this clearance.
+class FloatingNavigationInset extends InheritedWidget {
+  const FloatingNavigationInset({
+    super.key,
+    required this.bottom,
+    required super.child,
+  });
+
+  final double bottom;
+
+  static double of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<FloatingNavigationInset>()
+          ?.bottom ??
+      0;
+
+  @override
+  bool updateShouldNotify(FloatingNavigationInset oldWidget) =>
+      bottom != oldWidget.bottom;
+}
+
 /// A compact, in-app bottom navigator. Unlike an Android system overlay this
 /// requires no permission, and its parent reserves enough reading space below
 /// scrollables so that the last feed card cannot hide beneath it.
@@ -20,6 +42,7 @@ class FloatingTabBar extends StatelessWidget {
   /// Increase the bar's tappable height for larger system text.
   static double heightFor(BuildContext context) {
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    if (scale >= 1.8) return 104;
     if (scale >= 1.4) return 92;
     if (scale >= 1.15) return 84;
     return 78;
@@ -28,10 +51,12 @@ class FloatingTabBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Semantics(
-      container: true,
-      label: '悬浮 Tab 导航',
-      child: DecoratedBox(
+    return RepaintBoundary(
+      child: Semantics(
+        container: true,
+        explicitChildNodes: true,
+        label: '底部导航',
+        child: DecoratedBox(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(34),
           boxShadow: [
@@ -66,6 +91,7 @@ class FloatingTabBar extends StatelessWidget {
               NavigationDestinationLabelBehavior.onlyShowSelected,
           ),
         ),
+      ),
       ),
     );
   }

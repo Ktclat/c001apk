@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../components/footer.dart';
+import '../components/floating_tab_bar.dart';
 import '../components/item_card.dart';
 import '../logic/model/feed/datum.dart';
 import '../logic/state/loading_state.dart';
@@ -89,7 +90,8 @@ Widget buildBody(
     case Success():
       var dataList = (commonController.loadingState.value as Success).response
           as List<Datum>;
-      return ListView.separated(
+      return Builder(
+        builder: (context) => ListView.separated(
         controller: commonController.scrollController,
         physics: AlwaysScrollableScrollPhysics(
           parent: isReply2Reply
@@ -101,7 +103,8 @@ Widget buildBody(
             top: isReply2Reply ? 0 : 10,
             right: isReply2Reply ? 0 : 10,
             bottom: (isReply2Reply ? 0 : 10) +
-                MediaQuery.of(Get.context!).padding.bottom),
+                MediaQuery.paddingOf(context).bottom +
+                FloatingNavigationInset.of(context)),
         itemCount: dataList.length + 1 + (leading == null ? 0 : 1),
         itemBuilder: (_, index) {
           if (leading != null) {
@@ -143,6 +146,7 @@ Widget buildBody(
         separatorBuilder: (_, index) => isReply2Reply
             ? const Divider(height: 1)
             : const SizedBox(height: 10),
+        ),
       );
   }
   return Container(

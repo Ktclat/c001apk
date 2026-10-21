@@ -138,65 +138,90 @@ class _MainPageState extends State<MainPage> {
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : LayoutBuilder(
                 builder: (context, constraints) {
-                  final portrait =
-                      constraints.maxHeight > constraints.maxWidth;
-                  final floating = portrait && GStorage.floatingTabBar;
+                  // Tablets should keep the navigation rail even when held
+                  // upright; orientation alone is not sufficient.
+                  final useRail = constraints.maxWidth >= 600 ||
+                      constraints.maxWidth >= constraints.maxHeight;
+                  final keyboardOpen =
+                      MediaQuery.viewInsetsOf(context).bottom > 0;
+                  // Hide bottom navigation while typing to avoid covering
+                  // chat, search and reply input fields.
+                  final floating = !useRail &&
+                      !keyboardOpen &&
+                      GStorage.floatingTabBar;
                   final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
-                  const bottomGap = 12.0;
-                  const sideInset = 16.0;
-                  final floatHeight = FloatingTabBar.heightFor(context);
-                  // Reserve space for the overlay so the last line of a
-                  // scrolling feed and its refresh affordances are accessible.
-                  final reservedBottom = floating
-                      ? floatHeight + bottomGap + safeBottom + 12
-                      : 0.0;
+                  final bottomGap =
+                      constraints.maxHeight < 600 ? 8.0 : 12.0;
+                  final sideInset = constraints.maxWidth < 340 ? 8.0 : 16.0;
+                  final dockHeight = FloatingTabBar.heightFor(context);
+                  final dockBottom = bottomGap + safeBottom;
+                  // Keep scroll content full-bleed behind the floating bar,
+                  // but allow every root list to scroll its final item above
+                  // the navigation affordance.
+                  final scrollClearance =
+                      floating ? dockHeight + dockBottom + 16.0 : 0.0;
 
                   return Scaffold(
                     body: Stack(
                       children: [
                         Positioned.fill(
-                          bottom: reservedBottom,
-                          child: Row(
-                            children: [
-                              if (!portrait)
-                                StreamBuilder<int>(
-                                  initialData: _selectedIndex,
-                                  stream: _indexSctream.stream,
-                                  builder: (_, snapshot) => NavigationRail(
-                                    destinations: railDestinations,
-                                    selectedIndex: snapshot.data ?? 0,
-                                    onDestinationSelected: onDestinationSelected,
+                          child: FloatingNavigationInset(
+                            bottom: scrollClearance,
+                            child: Row(
+                              children: [
+                                if (useRail)
+                                  StreamBuilder<int>(
+                                    initialData: _selectedIndex,
+                                    stream: _indexSctream.stream,
+                                    builder: (_, snapshot) => NavigationRail(
+                                      destinations: railDestinations,
+                                      selectedIndex: snapshot.data ?? 0,
+                                      onDestinationSelected:
+                                          onDestinationSelected,
+                                    ),
+                                  ),
+                                Expanded(
+                                  child: PageView(
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    controller: _contrller,
+                                    children: pages,
                                   ),
                                 ),
-                              Expanded(
-                                child: PageView(
-                                  physics: const NeverScrollableScrollPhysics(),
-                                  controller: _contrller,
-                                  children: pages,
-                                ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                         if (floating)
                           Positioned(
-                            left: sideInset,
-                            right: sideInset,
-                            bottom: bottomGap + safeBottom,
-                            child: StreamBuilder<int>(
-                              initialData: _selectedIndex,
-                              stream: _indexSctream.stream,
-                              builder: (_, snapshot) => FloatingTabBar(
-                                height: floatHeight,
-                                destinations: barDestinations,
-                                selectedIndex: snapshot.data ?? 0,
-                                onDestinationSelected: onDestinationSelected,
+                            left: 0,
+                            right: 0,
+                            bottom: dockBottom,
+                            child: Padding(
+                              padding:
+                                  EdgeInsets.symmetric(horizontal: sideInset),
+                              child: Align(
+                                alignment: Alignment.bottomCenter,
+                                child: ConstrainedBox(
+                                  constraints:
+                                      const BoxConstraints(maxWidth: 420),
+                                  child: StreamBuilder<int>(
+                                    initialData: _selectedIndex,
+                                    stream: _indexSctream.stream,
+                                    builder: (_, snapshot) => FloatingTabBar(
+                                      height: dockHeight,
+                                      destinations: barDestinations,
+                                      selectedIndex: snapshot.data ?? 0,
+                                      onDestinationSelected:
+                                          onDestinationSelected,
+                                    ),
+                                  ),
+                                ),
                               ),
                             ),
                           ),
                       ],
                     ),
-                    bottomNavigationBar: portrait && !floating
+                    bottomNavigationBar: !useRail && !keyboardOpen && !floating
                         ? StreamBuilder<int>(
                             initialData: _selectedIndex,
                             stream: _indexSctream.stream,

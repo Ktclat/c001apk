@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:get/get_navigation/src/dialog/dialog_route.dart';
 
 import '../../../components/common_body.dart';
+import '../../../components/floating_tab_bar.dart';
 import '../../../pages/home/feed/home_feed_controller.dart';
 import '../../../pages/home/home_page.dart' show TabType;
 import '../../../pages/home/return_top_controller.dart';
@@ -127,7 +128,10 @@ class _HomeFeedPageState extends State<HomeFeedPage>
     return Scaffold(
       floatingActionButton:
           GlobalData().isLogin && widget.tabType == TabType.FEED
-              ? SlideTransition(
+              ? Padding(
+                  padding: EdgeInsets.only(
+                      bottom: FloatingNavigationInset.of(context)),
+                  child: SlideTransition(
                   position: Tween<Offset>(
                     begin: const Offset(0, 2),
                     end: const Offset(0, 0),
@@ -170,6 +174,7 @@ class _HomeFeedPageState extends State<HomeFeedPage>
                     tooltip: '发布动态',
                     child: const Icon(Icons.add),
                   ),
+                ),
                 )
               : null,
       body: commonBody(_homeFeedController),
