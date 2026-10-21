@@ -41,6 +41,25 @@ void main() {
       }));
     }
     await loader.load();
+
+    // The test engine substitutes square Ahem glyphs for Material icons.
+    // Load the real font so visual reviews cover actual navigation icons.
+    final executable = Platform.resolvedExecutable;
+    var flutterRoot = Platform.environment['FLUTTER_ROOT'];
+    if (flutterRoot == null) {
+      const sdkMarker = '/bin/cache/dart-sdk/bin/';
+      final index = executable.indexOf(sdkMarker);
+      if (index >= 0) flutterRoot = executable.substring(0, index);
+    }
+    expect(flutterRoot, isNotNull);
+    final icons = File(
+        '$flutterRoot/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf');
+    expect(icons.existsSync(), isTrue,
+        reason: 'Missing Flutter MaterialIcons OTF for visual review');
+    final iconLoader = FontLoader('MaterialIcons');
+    iconLoader.addFont(
+        icons.readAsBytes().then((bytes) => ByteData.sublistView(bytes)));
+    await iconLoader.load();
   });
   setUp(() async {
     await GStorage.settings.clear();
@@ -245,8 +264,10 @@ void main() {
       home: Scaffold(
         body: RepaintBoundary(
           key: const Key('floating-tab-review'),
-          child: Stack(
-            children: [
+          child: ColoredBox(
+            color: theme.colorScheme.surface,
+            child: Stack(
+              children: [
               Positioned.fill(
                 bottom: 102,
                 child: ListView(
@@ -290,6 +311,7 @@ void main() {
                 ),
               ),
             ],
+            ),
           ),
         ),
       ),
