@@ -6,7 +6,6 @@ import 'package:android_intent_plus/flag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../components/floating_tab_bar.dart';
 import '../../pages/home/return_top_controller.dart';
@@ -15,6 +14,7 @@ import '../../pages/main/main_controller.dart';
 import '../../pages/message/message_page.dart';
 import '../local_follow/local_follow_page.dart';
 import '../../logic/accounts/account_store.dart';
+import '../../utils/storage_util.dart';
 
 class MainPage extends StatefulWidget {
   const MainPage({super.key});
