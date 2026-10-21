@@ -6,6 +6,7 @@ import 'package:android_intent_plus/flag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../components/floating_tab_bar.dart';
 import '../../pages/home/return_top_controller.dart';
