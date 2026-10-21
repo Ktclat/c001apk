@@ -339,7 +339,7 @@ void main() {
       metrics: metrics,
       context: pageContext,
       scrollDelta: 36,
-      dragDetails: const DragUpdateDetails(),
+      dragDetails: DragUpdateDetails(globalPosition: Offset.zero),
     ).dispatch(pageContext);
     await tester.pumpAndSettle();
     final hidden = tester.widget<AnimatedOpacity>(
@@ -353,7 +353,7 @@ void main() {
       metrics: metrics,
       context: pageContext,
       scrollDelta: -32,
-      dragDetails: const DragUpdateDetails(),
+      dragDetails: DragUpdateDetails(globalPosition: Offset.zero),
     ).dispatch(pageContext);
     await tester.pumpAndSettle();
     final visible = tester.widget<AnimatedOpacity>(
