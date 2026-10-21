@@ -69,3 +69,23 @@ theme.textTheme.apply(fontFamily: 'sans-serif');
 - **原版排版**：沿用更早上游 [bggRGjQaUbCoE/c001apk-flutter](https://github.com/bggRGjQaUbCoE/c001apk-flutter/blob/main/lib/components/cards/feed_card.dart) 的 16sp 正文/1.5 行高与粗体标题，便于对比。
 
 两种排版仍服从应用及系统字号缩放，字体家族也仍服从“界面字体”选择。本次只是调整排版配置，**没有打包字体文件**。如截图中仍明显过粗，可对比手机的“加粗文字”系统开关及两种字体映射的差异。原帖 HTML 内作者明确使用的加粗、链接仍应保留。
+
+
+## 字体二次重构：内置 Noto Sans CJK SC
+
+旧系统/Material 选项依赖 ROM 中文字体回退，导致不同手机字形、字重、行距不一致。新安装默认 **思源黑体 · 清爽**，显式选择过旧字体的用户保留原偏好，可自行切换。采用真实 400/500/700 字重的简体中文标准子集，在 APK 中**离线可用**。
+
+来源为 [CodePlayer/webfont-noto](https://github.com/CodePlayer/webfont-noto/tree/7af038d32866b387c64ef8e644abf5c303e48db6/dist/NotoSans/NotoSansCJKsc-hinted/subset/NotoSansCJKsc-hinted-standard)，使用 SIL OFL 1.1，[许可原文](../apps/flutter/assets/fonts/OFL.txt)。仓库不会提交大体积字体二进制文件，而由固定提交与 Git blob SHA 校验的 `apps/flutter/tools/fetch_fonts.sh` 在构建时取得三个 OTF 文件，无法下载或验证则立刻构建失败。
+
+本地构建先运行：
+
+```sh
+cd apps/flutter
+bash tools/fetch_fonts.sh
+flutter pub get --enforce-lockfile
+flutter analyze --no-pub --no-fatal-infos
+flutter test --no-pub
+flutter build apk --profile --no-pub
+```
+
+简体中文常见字以外的罕见字会回退系统字体。没有引入 OpenAI 的专有字体文件。

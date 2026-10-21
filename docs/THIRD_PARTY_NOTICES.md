@@ -70,3 +70,7 @@ Flutter 页面和酷安多账号会话逻辑在本项目独立实现，沿用既
 `lib/utils/update.dart`。本项目独立实现语义版本比较、24 小时限频、跳过版本、
 独立网络请求及设置持久化；没有采用参考实现按构建时间判断版本的方式。
 参考项目的 GPL-3.0 许可证见上述链接。
+
+
+## 内置中文字体（OFL-1.1）
+本项目新增的 Noto Sans CJK SC（Regular/Medium/Bold）来自 [CodePlayer/webfont-noto](https://github.com/CodePlayer/webfont-noto/tree/7af038d32866b387c64ef8e644abf5c303e48db6/dist/NotoSans/NotoSansCJKsc-hinted/subset/NotoSansCJKsc-hinted-standard)，字体原作发布于 Noto 项目，采用 SIL Open Font License 1.1。完整许可见 [OFL.txt](../apps/flutter/assets/fonts/OFL.txt)。构建时从固定提交下载原样 OTF 字体子集并比对 Git blob SHA，运行时不下载字体。字体仍按 OFL 许可分发。

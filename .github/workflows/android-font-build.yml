@@ -34,6 +34,8 @@ jobs:
           flutter-version: '3.24.5'
           channel: stable
           cache: true
+      - name: Fetch and verify Chinese fonts
+        run: bash tools/fetch_fonts.sh
       - run: flutter pub get --enforce-lockfile
       - name: Static analysis
         run: flutter analyze --no-pub --no-fatal-infos
@@ -73,6 +75,8 @@ jobs:
         run: |
           flutter config --jdk-dir="$JAVA_HOME"
           sdkmanager 'platforms;android-34' 'build-tools;34.0.0' 'build-tools;30.0.3' 'ndk;23.1.7779620'
+      - name: Fetch and verify Chinese fonts
+        run: bash tools/fetch_fonts.sh
       - run: flutter pub get --enforce-lockfile
       - name: Compile Android debug APK
         run: flutter build apk --debug --no-pub

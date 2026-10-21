@@ -128,6 +128,17 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Pinned OFL fonts are acquired at build time (not runtime).
+  fonts:
+    - family: C001NotoSans
+      fonts:
+        - asset: assets/fonts/NotoSansCJKsc-Regular.otf
+          weight: 400
+        - asset: assets/fonts/NotoSansCJKsc-Medium.otf
+          weight: 500
+        - asset: assets/fonts/NotoSansCJKsc-Bold.otf
+          weight: 700
+
   # To add assets to your application, add an assets section, like this:
   assets:
     - assets/emojis/

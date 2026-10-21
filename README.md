@@ -10,7 +10,7 @@
 
 - 中文动态、评论、文章、应用详情、搜索与个人空间。
 - 游客浏览、账号登录与切换、本地关注与悄悄关注、收藏及浏览历史。
-- Material 3 动态取色、深色模式、**Android 系统字体选项**、独立字号调整、**舒适阅读／原版正文排版**。
+- Material 3 动态取色、深色模式、**内置思源黑体／跟随系统／Material 原版字体选项**、独立字号调整、**舒适阅读／原版正文排版**。
 - 本仓库独立的版本更新检查；未发布正式 GitHub Release 时，会提示暂无正式版本。
 - Android 设备标识可**从官方导入或手动填写**；支持编辑制造商、品牌、机型与系统参数（仅在主动粘贴时读取剪贴板）。详见[设备标识说明](docs/DEVICE_ID_IMPORT.md)。
 
@@ -25,6 +25,7 @@
 本地开发：Flutter 3.24.5、JDK 17、Android SDK 34。进入 `apps/flutter` 后：
 
 ```sh
+bash tools/fetch_fonts.sh
 flutter pub get --enforce-lockfile
 flutter analyze --no-pub --no-fatal-infos
 flutter test --no-pub
