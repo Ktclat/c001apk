@@ -102,6 +102,16 @@ void main() {
       await tester.tap(find.text('保存并应用'));
       await Future<void>.delayed(const Duration(milliseconds: 100));
     });
+    // Hive writes happen on the real filesystem event loop. Allow the
+    // save Future to finish before asserting that the sensitive input clears.
+    for (var attempt = 0; attempt < 100; attempt++) {
+      await tester.pump(const Duration(milliseconds: 20));
+      final idField = tester.widget<TextField>(
+          find.byKey(const Key('manual-shuzlm-id')));
+      if (idField.controller!.text.isEmpty) break;
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)));
+    }
     await tester.pumpAndSettle();
     expect(GStorage.model, 'CustomPhone');
     expect(GStorage.szlmId, 'synthetic_custom_identity_123456');
