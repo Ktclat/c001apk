@@ -74,16 +74,22 @@ void main() {
   testWidgets('account manager switches account and enters guest mode',
       (tester) async {
     await tester.runAsync(seedTwoAccounts);
-    await tester.pumpWidget(const GetMaterialApp(home: AccountsPage()));
+    String? selectedUid;
+    var guestRequested = false;
+    await tester.pumpWidget(GetMaterialApp(
+        home: AccountsPage(
+      onSwitchAccount: (uid) async => selectedUid = uid,
+      onUseGuest: () async => guestRequested = true,
+    )));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('合成账号一'));
     await waitForAccountAction(tester);
-    expect(GStorage.uid, '1');
+    expect(selectedUid, '1');
 
     await tester.tap(find.text('使用游客模式'));
     await waitForAccountAction(tester);
-    expect(GStorage.isLogin, isFalse);
+    expect(guestRequested, isTrue);
     expect(AccountStore().accounts.length, 2);
     await tester.pumpWidget(const SizedBox.shrink());
   });

@@ -7,7 +7,17 @@ import '../../logic/accounts/account_store.dart';
 import '../../utils/storage_util.dart';
 
 class AccountsPage extends StatefulWidget {
-  const AccountsPage({super.key});
+  const AccountsPage({
+    super.key,
+    this.onSwitchAccount,
+    this.onUseGuest,
+  });
+
+  /// Optional action overrides, allowing the view to be tested without
+  /// starting filesystem writes inside Flutter's fake-async widget tests.
+  /// Normal app usage delegates to AccountStore when these are null.
+  final Future<void> Function(String uid)? onSwitchAccount;
+  final Future<void> Function()? onUseGuest;
   @override
   State<AccountsPage> createState() => _AccountsPageState();
 }
@@ -108,7 +118,8 @@ class _AccountsPageState extends State<AccountsPage> {
                             if (account.needsLogin) {
                               Get.toNamed('/login');
                             } else {
-                              _run(() => _store.switchTo(account.uid));
+                              _run(() => widget.onSwitchAccount?.call(account.uid) ??
+                                  _store.switchTo(account.uid));
                             }
                           },
                         ),
@@ -127,7 +138,7 @@ class _AccountsPageState extends State<AccountsPage> {
                               ? '暂时不使用账号浏览，保留所有本机数据'
                               : '当前为游客模式'),
                           onTap: GStorage.isLogin
-                              ? () => _run(_store.useGuest)
+                              ? () => _run(widget.onUseGuest ?? _store.useGuest)
                               : null),
                     ],
                   ),
