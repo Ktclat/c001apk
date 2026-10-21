@@ -4,6 +4,21 @@ class OfficialDeviceIdentity {
   static const guideUrl =
       'https://github.com/TG-Twilight/c001apk/blob/main/docs/DEVICE_ID_IMPORT.md';
 
+  /// Accept one manually entered ShuzlmID without asking for official
+  /// clipboard content. Never interpret AndroidID, UUID or OAID as this ID.
+  static String parseManual(String text) {
+    final value = text.trim();
+    if (value.isEmpty) {
+      throw const FormatException('请填写数盟 ID，或留空保留当前标识');
+    }
+    if (value.contains('\n') || value.contains('\r')) {
+      throw const FormatException('手动输入只能包含一个数盟 ID');
+    }
+    final stripped = value.replaceFirst(
+        RegExp(r'^ShuzlmID\s*[:：]\s*', caseSensitive: false), '');
+    return parse('ShuzlmID: $stripped');
+  }
+
   static String parse(String text) {
     if (text.length > 32768) {
       throw const FormatException('复制内容过长，请重新从官方酷安复制');

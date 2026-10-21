@@ -25,6 +25,7 @@ import '../../utils/global_data.dart';
 import '../../logic/local_follow/local_follow_store.dart';
 import '../local_follow/local_follow_page.dart';
 import 'device_identity_page.dart';
+import 'manual_device_info_page.dart';
 
 enum ImageQuality {
   AUTO,
@@ -331,6 +332,12 @@ class _SettingsDetailPageState extends State<SettingsDetailPage> {
               title: const Text('导入官方设备标识'),
               subtitle: const Text('减少重复人机验证 · 获取说明与粘贴识别'),
               onTap: () => Get.to(() => const DeviceIdentityPage()),
+            ),
+            ListTile(
+              leading: const Icon(Icons.edit_note_outlined),
+              title: const Text('手动填写设备信息'),
+              subtitle: const Text('自行填写数盟 ID、品牌、型号和系统版本'),
+              onTap: () => Get.to(() => const ManualDeviceInfoPage()),
             ),
             ListTile(
               leading: const Icon(Icons.developer_mode),

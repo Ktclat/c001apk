@@ -18,6 +18,7 @@ import 'storage_path.dart';
 import 'app_theme.dart';
 import 'reading_preset.dart';
 import 'device_profile.dart';
+import 'manual_device_info.dart';
 import 'official_device_identity.dart';
 
 class GStorage {
@@ -230,6 +231,43 @@ class GStorage {
     await settings.putAll({
       SettingsBoxKey.szlmId: id,
       SettingsBoxKey.xAppDevice: encoded,
+    });
+    await settings.flush();
+  }
+
+  /// Atomically apply checked user-entered device settings. When the optional
+  /// ID is blank, preserve the existing encoded install identity and MAC.
+  /// Never replace credentials, browsing data or unrelated preferences.
+  static Future<void> saveManualDeviceInfo({
+    required DeviceProfile profile,
+    String? manualShuzlmId,
+  }) async {
+    final checked = ManualDeviceInfo.validate(profile);
+    final parsedId = manualShuzlmId == null ||
+            manualShuzlmId.trim().isEmpty
+        ? null
+        : OfficialDeviceIdentity.parseManual(manualShuzlmId);
+    final fields = _deviceFields();
+    if (parsedId != null) fields[0] = parsedId;
+    fields[4] = ' ${checked.manufacturer}';
+    fields[5] = ' ${checked.brand}';
+    fields[6] = ' ${checked.model}';
+    fields[7] = ' ${checked.buildNumber}';
+    final encoded = await TokenUtils.encodeDevice(fields.join(';'));
+    final agent = 'Dalvik/2.1.0 (Linux; U; Android ${checked.androidVersion}; '
+        '${checked.model} ${checked.buildNumber}) (#Build; ${checked.brand}; '
+        '${checked.model}; ${checked.buildNumber}; ${checked.androidVersion}) '
+        '+CoolMarket/$versionName-$versionCode-${Constants.MODE}';
+    await settings.putAll({
+      SettingsBoxKey.manufacturer: checked.manufacturer,
+      SettingsBoxKey.brand: checked.brand,
+      SettingsBoxKey.model: checked.model,
+      SettingsBoxKey.buildNumber: checked.buildNumber,
+      SettingsBoxKey.sdkInt: checked.sdkInt,
+      SettingsBoxKey.androidVersion: checked.androidVersion,
+      SettingsBoxKey.userAgent: agent,
+      SettingsBoxKey.xAppDevice: encoded,
+      if (parsedId != null) SettingsBoxKey.szlmId: parsedId,
     });
     await settings.flush();
   }

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../utils/official_device_identity.dart';
 import '../../utils/storage_util.dart';
 import '../../utils/utils.dart';
+import 'manual_device_info_page.dart';
 
 class DeviceIdentityPage extends StatefulWidget {
   const DeviceIdentityPage({super.key});
@@ -143,6 +144,14 @@ class _DeviceIdentityPageState extends State<DeviceIdentityPage> {
                       icon: const Icon(Icons.open_in_new),
                       label: const Text('酷安 OAID 界面'),
                     ),
+                  OutlinedButton.icon(
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute<void>(
+                          builder: (_) => const ManualDeviceInfoPage()),
+                    ),
+                    icon: const Icon(Icons.edit_note_outlined),
+                    label: const Text('手动填写设备信息'),
+                  ),
                   TextButton.icon(
                     onPressed: () =>
                         Utils.launchURL(OfficialDeviceIdentity.guideUrl),
