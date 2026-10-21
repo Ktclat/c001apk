@@ -347,6 +347,13 @@ class GStorage {
   static Future<void> setReadingPreset(ReadingPreset value) =>
       settings.put(SettingsBoxKey.readingPreset, value.index);
 
+  /// Only affects the in-app root navigation; never an Android overlay.
+  static bool get floatingTabBar =>
+      settings.get(SettingsBoxKey.floatingTabBar, defaultValue: false);
+
+  static Future<void> setFloatingTabBar(bool enabled) =>
+      settings.put(SettingsBoxKey.floatingTabBar, enabled);
+
   static double get fontScale {
     return settings.get(SettingsBoxKey.fontScale, defaultValue: 1.0);
   }
@@ -598,6 +605,7 @@ class SettingsBoxKey {
       fontScale = 'fontScale',
       fontChoice = 'fontChoice',
       readingPreset = 'readingPreset',
+      floatingTabBar = 'floatingTabBar',
       typographyV2 = 'typographyV2Migrated',
       followType = 'followType',
       imageQuality = 'imageQuality',

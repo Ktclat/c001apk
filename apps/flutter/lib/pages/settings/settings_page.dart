@@ -40,7 +40,7 @@ enum ImageQuality {
 }
 
 enum SettingsSection {
-  appearance('外观与字体', '动态取色、主题、深色模式与字体设置', Icons.palette_outlined),
+  appearance('外观与字体', '配色、字体与悬浮 Tab 导航', Icons.palette_outlined),
   content('关注与内容', '本地关注、悄悄关注、账号关注与表情', Icons.feed_outlined),
   privacy('浏览与隐私', '用户与话题黑名单、浏览历史、外部链接', Icons.privacy_tip_outlined),
   storage('存储与更新', '图片缓存、版本与更新检查', Icons.storage_outlined),
@@ -188,6 +188,13 @@ class _SettingsDetailPageState extends State<SettingsDetailPage> {
                 ),
               ],
               forceAppUpdate: true,
+            ),
+            const SwitchItem(
+              icon: Icons.layers_outlined,
+              title: '悬浮 Tab 导航',
+              subtitle: '底部主页／关注／我的采用悬浮胶囊样式，横屏仍显示侧栏',
+              boxKey: SettingsBoxKey.floatingTabBar,
+              defaultValue: false,
             ),
             const FontChoiceTile(),
             const ReadingPresetTile(),

@@ -6,7 +6,9 @@ import 'package:android_intent_plus/flag.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:hive_flutter/hive_flutter.dart';
 
+import '../../components/floating_tab_bar.dart';
 import '../../pages/home/return_top_controller.dart';
 import '../../pages/home/home_page.dart';
 import '../../pages/main/main_controller.dart';
@@ -128,48 +130,88 @@ class _MainPageState extends State<MainPage> {
       onPopInvokedWithResult: (_, obj) async {
         onBackPressed();
       },
-      child: _resetting
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : LayoutBuilder(
-              builder: (_, constriants) {
-                bool isPortait = constriants.maxHeight > constriants.maxWidth;
+      child: ValueListenableBuilder(
+        valueListenable:
+            GStorage.settings.listenable(keys: [SettingsBoxKey.floatingTabBar]),
+        builder: (context, _, __) => _resetting
+            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final portrait =
+                      constraints.maxHeight > constraints.maxWidth;
+                  final floating = portrait && GStorage.floatingTabBar;
+                  final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
+                  const bottomGap = 12.0;
+                  const sideInset = 16.0;
+                  final floatHeight = FloatingTabBar.heightFor(context);
+                  // Reserve space for the overlay so the last line of a
+                  // scrolling feed and its refresh affordances are accessible.
+                  final reservedBottom = floating
+                      ? floatHeight + bottomGap + safeBottom + 12
+                      : 0.0;
 
-                return Scaffold(
-                  body: Row(children: [
-                    if (!isPortait)
-                      StreamBuilder(
-                        initialData: _selectedIndex,
-                        stream: _indexSctream.stream,
-                        builder: (_, snapshot) => NavigationRail(
-                          destinations: railDestinations,
-                          selectedIndex: snapshot.data,
-                          onDestinationSelected: onDestinationSelected,
-                        ),
-                      ),
-                    Expanded(
-                      child: PageView(
-                        physics: const NeverScrollableScrollPhysics(),
-                        controller: _contrller,
-                        children: pages,
-                      ),
-                    ),
-                  ]),
-                  bottomNavigationBar: isPortait
-                      ? StreamBuilder(
-                          initialData: _selectedIndex,
-                          stream: _indexSctream.stream,
-                          builder: (_, snapshot) => NavigationBar(
-                            destinations: barDestinations,
-                            selectedIndex: snapshot.data!,
-                            onDestinationSelected: onDestinationSelected,
-                            labelBehavior: NavigationDestinationLabelBehavior
-                                .onlyShowSelected,
+                  return Scaffold(
+                    body: Stack(
+                      children: [
+                        Positioned.fill(
+                          bottom: reservedBottom,
+                          child: Row(
+                            children: [
+                              if (!portrait)
+                                StreamBuilder<int>(
+                                  initialData: _selectedIndex,
+                                  stream: _indexSctream.stream,
+                                  builder: (_, snapshot) => NavigationRail(
+                                    destinations: railDestinations,
+                                    selectedIndex: snapshot.data ?? 0,
+                                    onDestinationSelected: onDestinationSelected,
+                                  ),
+                                ),
+                              Expanded(
+                                child: PageView(
+                                  physics: const NeverScrollableScrollPhysics(),
+                                  controller: _contrller,
+                                  children: pages,
+                                ),
+                              ),
+                            ],
                           ),
-                        )
-                      : null,
-                );
-              },
-            ),
+                        ),
+                        if (floating)
+                          Positioned(
+                            left: sideInset,
+                            right: sideInset,
+                            bottom: bottomGap + safeBottom,
+                            child: StreamBuilder<int>(
+                              initialData: _selectedIndex,
+                              stream: _indexSctream.stream,
+                              builder: (_, snapshot) => FloatingTabBar(
+                                height: floatHeight,
+                                destinations: barDestinations,
+                                selectedIndex: snapshot.data ?? 0,
+                                onDestinationSelected: onDestinationSelected,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                    bottomNavigationBar: portrait && !floating
+                        ? StreamBuilder<int>(
+                            initialData: _selectedIndex,
+                            stream: _indexSctream.stream,
+                            builder: (_, snapshot) => NavigationBar(
+                              destinations: barDestinations,
+                              selectedIndex: snapshot.data ?? 0,
+                              onDestinationSelected: onDestinationSelected,
+                              labelBehavior: NavigationDestinationLabelBehavior
+                                  .onlyShowSelected,
+                            ),
+                          )
+                        : null,
+                  );
+                },
+              ),
+      ),
     );
   }
 
