@@ -182,9 +182,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 500));
       await waitForUpdateUi(tester, find.text('检查更新'));
       await tester.pumpAndSettle();
-      expect(opened, hasLength(2));
-      expect(opened.last,
-          'https://github.com/Ktclat/c001apk/releases/tag/1.2.0-release');
+      // This project only ships Android assets. On host-based widget tests
+      // (Linux/macOS/Windows), the release page is both the primary link
+      // and the fallback, so the deduplicating launcher tries it only once.
+      // Both an explicit false and a thrown platform error must be safe.
+      expect(opened, [
+        'https://github.com/Ktclat/c001apk/releases/tag/1.2.0-release'
+      ]);
       await tester.pumpWidget(const SizedBox.shrink());
     });
   }
