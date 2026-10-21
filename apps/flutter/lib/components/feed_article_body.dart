@@ -19,7 +19,7 @@ Widget feedArticleBody(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: htmlText(
           data.title.orEmpty,
-          role: HtmlTextRole.feedTitle,
+          role: HtmlTextRole.articleTitle,
         ),
       );
     case 'text':

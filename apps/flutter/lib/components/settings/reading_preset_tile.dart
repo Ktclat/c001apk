@@ -19,7 +19,7 @@ class ReadingPresetTile extends StatelessWidget {
         builder: (context, _, __) => ListTile(
           leading: const Icon(Icons.menu_book_outlined),
           title: const Text('正文排版'),
-          subtitle: Text('当前：' + GStorage.readingPreset.label),
+          subtitle: Text('当前：${GStorage.readingPreset.label}'),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => _showPicker(context),
         ),

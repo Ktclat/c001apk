@@ -142,6 +142,14 @@ void main() {
     expect(body.textStyle!.fontWeight, FontWeight.w400);
     expect(body.textStyle!.height, 1.42);
     expect(title.textStyle!.fontWeight, FontWeight.w500);
+    expect(
+        (htmlText('评论', role: HtmlTextRole.replyBody) as HtmlWidget)
+            .textStyle!.fontSize,
+        14.5);
+    expect(
+        (htmlText('长文章标题', role: HtmlTextRole.articleTitle) as HtmlWidget)
+            .textStyle!.fontSize,
+        17);
     await GStorage.setReadingPreset(ReadingPreset.original);
     expect(GStorage.readingPreset, ReadingPreset.original);
     body = htmlText('中文帖子', role: HtmlTextRole.feedBody) as HtmlWidget;
@@ -149,6 +157,10 @@ void main() {
     expect(body.textStyle!.fontSize, 16);
     expect(body.textStyle!.height, 1.5);
     expect(title.textStyle!.fontWeight, FontWeight.bold);
+    expect(
+        (htmlText('评论', role: HtmlTextRole.replyBody) as HtmlWidget)
+            .textStyle!.fontSize,
+        15);
     expect((htmlText('普通控件') as HtmlWidget).textStyle!.fontSize, 15);
     await GStorage.settings.flush();
     expect(ReadingPreset.fromStorage('invalid'), ReadingPreset.comfortable);

@@ -7,10 +7,9 @@ import 'package:get/get.dart';
 import '../utils/emoji_util.dart';
 import '../utils/extensions.dart';
 import '../utils/storage_util.dart';
-import '../utils/reading_preset.dart';
 import '../utils/utils.dart';
 
-enum HtmlTextRole { normal, feedBody, feedTitle }
+enum HtmlTextRole { normal, feedBody, feedTitle, articleTitle, replyBody }
 
 Widget htmlText(
   String html, {
@@ -74,16 +73,22 @@ Widget htmlText(
       fontSize: switch (role) {
         HtmlTextRole.feedBody => reading.bodySize,
         HtmlTextRole.feedTitle => reading.titleSize,
+        HtmlTextRole.articleTitle => reading.articleTitleSize,
+        HtmlTextRole.replyBody => reading.replySize,
         HtmlTextRole.normal => fontSize,
       },
       height: switch (role) {
         HtmlTextRole.feedBody => reading.bodyHeight,
         HtmlTextRole.feedTitle => reading.titleHeight,
+        HtmlTextRole.articleTitle => reading.titleHeight,
+        HtmlTextRole.replyBody => reading.bodyHeight,
         HtmlTextRole.normal => 1.5,
       },
       fontWeight: switch (role) {
         HtmlTextRole.feedBody => FontWeight.w400,
         HtmlTextRole.feedTitle => reading.titleWeight,
+        HtmlTextRole.articleTitle => reading.titleWeight,
+        HtmlTextRole.replyBody => FontWeight.w400,
         HtmlTextRole.normal => isBold ? FontWeight.bold : FontWeight.w400,
       },
     ),

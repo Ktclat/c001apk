@@ -24,6 +24,8 @@ enum ReadingPreset {
   double get bodySize => this == ReadingPreset.comfortable ? 15 : 16;
   double get bodyHeight => this == ReadingPreset.comfortable ? 1.42 : 1.5;
   double get titleSize => 16;
+  double get articleTitleSize => 17;
+  double get replySize => this == ReadingPreset.comfortable ? 14.5 : 15;
   double get titleHeight => this == ReadingPreset.comfortable ? 1.38 : 1.5;
   FontWeight get titleWeight =>
       this == ReadingPreset.comfortable ? FontWeight.w500 : FontWeight.bold;

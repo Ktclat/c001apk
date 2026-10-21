@@ -117,7 +117,7 @@ class FeedReplyCard extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         _username(),
-                        htmlText(data.message.toString(), role: HtmlTextRole.feedBody),
+                        htmlText(data.message.toString(), role: HtmlTextRole.replyBody),
                         if (!data.picArr.isNullOrEmpty) ...[
                           const SizedBox(height: 10),
                           _image(),
