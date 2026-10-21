@@ -52,7 +52,7 @@ void main() {
     expect(theme.appBarTheme.titleTextStyle!.fontSize, 18);
     expect(theme.listTileTheme.titleTextStyle!.fontSize, 16);
     expect(theme.listTileTheme.subtitleTextStyle!.fontSize, 13);
-    expect(theme.textTheme.bodyMedium!.height, 1.45);
+    expect(theme.textTheme.bodyMedium!.height, 1.46);
     expect(const AppTextScaler(TextScaler.linear(1.5), 1.2).scale(14), 25.2);
   });
   testWidgets(
@@ -127,6 +127,9 @@ void main() {
     expect(system.textTheme.bodyMedium!.fontFamily, 'sans-serif');
     expect(system.appBarTheme.titleTextStyle!.fontFamily, 'sans-serif');
     expect(material.textTheme.bodyMedium!.fontFamily, isNot('sans-serif'));
+    expect(AppFontChoice.fromStorage(null), AppFontChoice.notoSans);
+    expect(AppFontChoice.notoSans.familyForPlatform(TargetPlatform.android),
+        AppFontChoice.bundledFontFamily);
     expect(AppFontChoice.fromStorage(100), AppFontChoice.system);
     expect(AppFontChoice.fromStorage('invalid'), AppFontChoice.system);
     await GStorage.setFontChoice(AppFontChoice.material);
@@ -138,18 +141,18 @@ void main() {
     expect(GStorage.readingPreset, ReadingPreset.comfortable);
     var body = htmlText('中文帖子', role: HtmlTextRole.feedBody) as HtmlWidget;
     var title = htmlText('帖子标题', role: HtmlTextRole.feedTitle) as HtmlWidget;
-    expect(body.textStyle!.fontSize, 15);
+    expect(body.textStyle!.fontSize, 14.5);
     expect(body.textStyle!.fontWeight, FontWeight.w400);
-    expect(body.textStyle!.height, 1.42);
+    expect(body.textStyle!.height, 1.52);
     expect(title.textStyle!.fontWeight, FontWeight.w500);
     expect(
         (htmlText('评论', role: HtmlTextRole.replyBody) as HtmlWidget)
             .textStyle!.fontSize,
-        14.5);
+        14);
     expect(
         (htmlText('长文章标题', role: HtmlTextRole.articleTitle) as HtmlWidget)
             .textStyle!.fontSize,
-        17);
+        16.5);
     await GStorage.setReadingPreset(ReadingPreset.original);
     expect(GStorage.readingPreset, ReadingPreset.original);
     body = htmlText('中文帖子', role: HtmlTextRole.feedBody) as HtmlWidget;
@@ -166,11 +169,25 @@ void main() {
     expect(ReadingPreset.fromStorage('invalid'), ReadingPreset.comfortable);
   });
 
+  test('post markup and article typography match readable design', () {
+    expect(normalizePostMarkup('**周五新鲜事**\n\n\n欢迎'),
+        '<strong>周五新鲜事</strong><br/><br/>欢迎');
+    expect(normalizePostMarkup('前文\n下一行'),
+        '前文<br/>下一行');
+    expect(normalizePostMarkup('<a href="/u/1">用户</a>'),
+        '<a href="/u/1">用户</a>');
+    final article =
+        htmlText('中文文章', role: HtmlTextRole.articleBody) as HtmlWidget;
+    expect(article.textStyle!.fontSize, 15);
+    expect(article.textStyle!.fontWeight, FontWeight.w400);
+    expect(article.textStyle!.locale, const Locale('zh', 'CN'));
+  });
+
   test('feed HTML text follows the chosen Android font', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);
     expect((htmlText('中文动态') as HtmlWidget).textStyle?.fontFamily,
-        'sans-serif');
+        AppFontChoice.bundledFontFamily);
     await GStorage.setFontChoice(AppFontChoice.material);
     expect((htmlText('中文动态') as HtmlWidget).textStyle?.fontFamily, isNull);
   });
@@ -207,14 +224,14 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('界面字体'));
     await tester.pumpAndSettle();
-    expect(find.text('跟随系统（推荐）'), findsOneWidget);
-    await tester.tap(find.text('Material 默认'));
+    expect(find.text('思源黑体 · 清爽（推荐）'), findsOneWidget);
+    await tester.tap(find.text('Material 原版'));
     await tester.pumpAndSettle();
     // The sheet must close without running Hive's asynchronous filesystem
     // writer in a simulated async zone. Persistence is tested above.
     expect(chosen, AppFontChoice.material);
-    expect(GStorage.fontChoice, AppFontChoice.system);
-    expect(find.text('Material 默认'), findsNothing);
+    expect(GStorage.fontChoice, AppFontChoice.notoSans);
+    expect(find.text('Material 原版'), findsNothing);
     // Release any ValueListenableBuilder subscriptions before teardown.
     await tester.pumpWidget(const SizedBox.shrink());
   });
