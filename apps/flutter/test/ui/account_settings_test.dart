@@ -103,6 +103,7 @@ void main() {
     expect(find.text('字体大小'), findsOneWidget);
     expect(find.text('界面字体'), findsOneWidget);
     expect(find.text('正文排版'), findsOneWidget);
+    expect(find.text('悬浮 Tab 导航'), findsOneWidget);
     expect(find.byType(BackButton), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -119,6 +120,20 @@ void main() {
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
+  test('floating tab setting defaults off, persists, and does not affect fonts',
+      () async {
+    expect(GStorage.floatingTabBar, isFalse);
+    final originalFont = GStorage.fontChoice;
+    await GStorage.setFloatingTabBar(true);
+    await GStorage.settings.flush();
+    expect(GStorage.settings.get(SettingsBoxKey.floatingTabBar), isTrue);
+    expect(GStorage.floatingTabBar, isTrue);
+    expect(GStorage.fontChoice, originalFont);
+    await GStorage.setFloatingTabBar(false);
+    await GStorage.settings.flush();
+    expect(GStorage.floatingTabBar, isFalse);
+  });
+
   test('font setting uses native Android family and persists', () async {
     final base = ThemeData(platform: TargetPlatform.android, useMaterial3: true);
     final system = applyAppTypography(base, fontChoice: AppFontChoice.system);

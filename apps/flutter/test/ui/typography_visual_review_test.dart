@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'dart:typed_data';
 
 import 'package:c001apk_flutter/components/html_text.dart';
+import 'package:c001apk_flutter/components/floating_tab_bar.dart';
 import 'package:c001apk_flutter/utils/app_theme.dart';
 import 'package:c001apk_flutter/utils/reading_preset.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
@@ -12,6 +13,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
+
+void _noopSelected(int _) {}
 
 /// A reproducible, *synthetic* screenshot review. Never uses real user content
 /// or network data, and never claims to substitute for Android-device testing.
@@ -199,6 +202,112 @@ void main() {
       // actual Chinese glyph outlines yield much more image detail.
       expect(await output.length(), greaterThan(40000),
           reason: 'Preview must render actual font glyphs, not Ahem boxes');
+      image.dispose();
+    });
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('floating tab preview renders clear rounded navigation',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const destinations = <NavigationDestination>[
+      NavigationDestination(
+        selectedIcon: Icon(Icons.home),
+        icon: Icon(Icons.home_outlined),
+        label: '主页',
+      ),
+      NavigationDestination(
+        selectedIcon: Icon(Icons.feed),
+        icon: Icon(Icons.feed_outlined),
+        label: '关注',
+      ),
+      NavigationDestination(
+        selectedIcon: Icon(Icons.person),
+        icon: Icon(Icons.person_outline),
+        label: '我的',
+      ),
+    ];
+    final theme = applyAppTypography(
+      ThemeData(
+        useMaterial3: true,
+        platform: TargetPlatform.android,
+        fontFamily: AppFontChoice.bundledFontFamily,
+        colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xff386899)),
+      ),
+    );
+    await tester.pumpWidget(GetMaterialApp(
+      theme: theme,
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        body: RepaintBoundary(
+          key: const Key('floating-tab-review'),
+          child: Stack(
+            children: [
+              Positioned.fill(
+                bottom: 102,
+                child: ListView(
+                  padding: const EdgeInsets.all(12),
+                  children: [
+                    Text('动态', style: theme.textTheme.headlineSmall),
+                    const SizedBox(height: 12),
+                    Card(
+                      elevation: 0,
+                      child: Padding(
+                        padding: const EdgeInsets.all(18),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('让浏览更轻盈', style: theme.textTheme.titleLarge),
+                            const SizedBox(height: 10),
+                            htmlText(
+                              '悬浮导航采用柔和的圆角胶囊设计。'
+                              '主页、关注和我的三个入口仍然保持原来的操作习惯。',
+                              role: HtmlTextRole.feedBody,
+                            ),
+                            const SizedBox(height: 12),
+                            Text('以下空白区域为导航预留，内容不会被遮挡。',
+                                style: theme.textTheme.bodySmall),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Positioned(
+                left: 16,
+                right: 16,
+                bottom: 12,
+                child: FloatingTabBar(
+                  height: 78,
+                  destinations: destinations,
+                  selectedIndex: 0,
+                  onDestinationSelected: _noopSelected,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(FloatingTabBar), findsOneWidget);
+    final boundary = tester.renderObject<RenderRepaintBoundary>(
+      find.byKey(const Key('floating-tab-review')),
+    );
+    await tester.runAsync(() async {
+      final image = await boundary.toImage(pixelRatio: 2);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      expect(bytes, isNotNull);
+      final output = File('build/review/floating-tab.png');
+      await output.parent.create(recursive: true);
+      await output.writeAsBytes(bytes!.buffer.asUint8List());
+      expect(await output.length(), greaterThan(40000));
       image.dispose();
     });
     await tester.pumpWidget(const SizedBox.shrink());

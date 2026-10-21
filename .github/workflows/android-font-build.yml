@@ -51,7 +51,7 @@ jobs:
         uses: actions/upload-artifact@v7.0.2
         with:
           name: c001apk-typography-review
-          path: apps/flutter/build/review/noto-typography.png
+          path: apps/flutter/build/review/*.png
           if-no-files-found: error
           retention-days: 14
 

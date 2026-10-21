@@ -8,6 +8,7 @@ import 'package:c001apk_flutter/pages/message/message_controller.dart';
 import 'package:c001apk_flutter/pages/local_follow/local_follow_page.dart';
 import 'package:c001apk_flutter/constants/constants.dart';
 import 'package:c001apk_flutter/main.dart';
+import 'package:c001apk_flutter/components/floating_tab_bar.dart';
 import 'package:c001apk_flutter/pages/home/home_page.dart';
 import 'package:c001apk_flutter/components/settings/drop_down_menu_item.dart';
 import 'package:c001apk_flutter/components/cards/feed_card.dart';
@@ -280,6 +281,64 @@ void main() {
         matching: find.byIcon(Icons.home_outlined)));
     await tester.pumpAndSettle();
     expect(tester.state(find.byType(HomePage)), same(homeState));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('optional floating root tabs preserve selection and home state',
+      (tester) async {
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.runAsync(
+        () => GStorage.setFloatingTabBar(false));
+    await tester.pumpWidget(const C001APKAPP());
+    await tester.pumpAndSettle();
+    final homeState = tester.state(find.byType(HomePage));
+    expect(find.byType(FloatingTabBar), findsNothing);
+    expect(find.byType(NavigationBar), findsOneWidget);
+
+    await tester.runAsync(() => GStorage.setFloatingTabBar(true));
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingTabBar), findsOneWidget);
+    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(tester.state(find.byType(HomePage)), same(homeState));
+    final floatingRect = tester.getRect(find.byType(FloatingTabBar));
+    expect(floatingRect.left, greaterThan(0));
+    expect(floatingRect.right, lessThan(390));
+    final rootPage = tester.getRect(find.byType(PageView).first);
+    expect(rootPage.bottom, lessThan(floatingRect.top),
+        reason: 'The floating tab must not cover content or scroll gestures');
+
+    await tester.tap(find.widgetWithText(NavigationDestination, '关注'));
+    await tester.pumpAndSettle();
+    expect(find.text('本地关注动态'), findsOneWidget);
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar))
+        .selectedIndex, 1);
+
+    // Tablets/landscape retain the original NavigationRail.
+    tester.view.physicalSize = const Size(1200, 800);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(FloatingTabBar), findsNothing);
+    expect(find.byType(NavigationRail), findsOneWidget);
+    expect(tester.widget<NavigationRail>(find.byType(NavigationRail))
+        .selectedIndex, 1);
+
+    tester.view.physicalSize = const Size(390, 850);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.byType(FloatingTabBar), findsOneWidget);
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar))
+        .selectedIndex, 1);
+
+    await tester.runAsync(() => GStorage.setFloatingTabBar(false));
+    await tester.pumpAndSettle();
+    expect(find.byType(FloatingTabBar), findsNothing);
+    expect(tester.widget<NavigationBar>(find.byType(NavigationBar))
+        .selectedIndex, 1);
+    await tester.tap(find.widgetWithText(NavigationDestination, '主页'));
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(HomePage)), same(homeState));
+    expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
