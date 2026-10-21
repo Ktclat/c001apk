@@ -58,62 +58,50 @@ class _HomeTopicPageState extends State<HomeTopicPage>
                 itemCount: widget.tabType == TabType.TOPIC
                     ? data![0].entities!.length
                     : data!.length,
-                itemBuilder: (context, index) => IntrinsicHeight(
-                  child: Obx(
-                    () => InkWell(
-                      onTap: () {
-                        _homeTopicController.currentIndex.value = index;
-                        _controller.jumpToPage(index);
-                      },
-                      child: Ink(
-                        color: index == _homeTopicController.currentIndex.value
-                            ? Theme.of(context).colorScheme.onInverseSurface
+                // IntrinsicHeight adds an expensive measurement pass
+                // for every visible topic item.
+                itemBuilder: (context, index) => Obx(() {
+                  final selected =
+                      index == _homeTopicController.currentIndex.value;
+                  final colors = Theme.of(context).colorScheme;
+                  return InkWell(
+                    onTap: () {
+                      _homeTopicController.currentIndex.value = index;
+                      _controller.jumpToPage(index);
+                    },
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        color: selected
+                            ? colors.onInverseSurface
                             : Colors.transparent,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              height: double.infinity,
-                              width: 3,
-                              color: index ==
-                                      _homeTopicController.currentIndex.value
-                                  ? Theme.of(context).colorScheme.primary
-                                  : Colors.transparent,
-                            ),
-                            Expanded(
-                              flex: 1,
-                              child: Container(
-                                alignment: Alignment.center,
-                                padding:
-                                    const EdgeInsets.symmetric(vertical: 10),
-                                child: Text(
-                                  widget.tabType == TabType.TOPIC
-                                      ? data[0]
-                                          .entities![index]
-                                          .title
-                                          .toString()
-                                      : data[index].title.toString(),
-                                  style: TextStyle(
-                                    color: index ==
-                                            _homeTopicController
-                                                .currentIndex.value
-                                        ? Theme.of(context).colorScheme.primary
-                                        : Theme.of(context)
-                                            .colorScheme
-                                            .onSurface,
-                                    fontSize: 15,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ),
-                          ],
+                        border: Border(
+                          left: BorderSide(
+                            width: 3,
+                            color: selected
+                                ? colors.primary
+                                : Colors.transparent,
+                          ),
+                        ),
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                            vertical: 10, horizontal: 4),
+                        child: Text(
+                          widget.tabType == TabType.TOPIC
+                              ? data[0].entities![index].title.toString()
+                              : data[index].title.toString(),
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: selected ? colors.primary : colors.onSurface,
+                            fontSize: 15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                     ),
-                  ),
-                ),
+                  );
+                }),
               ),
             ),
             Expanded(

@@ -128,9 +128,8 @@ class C001APKAPP extends StatelessWidget {
       ),
       pageTransitionsTheme: const PageTransitionsTheme(
         builders: <TargetPlatform, PageTransitionsBuilder>{
-          TargetPlatform.android: ZoomPageTransitionsBuilder(
-            allowEnterRouteSnapshotting: false,
-          ),
+          // Avoid zooming a complex, image-heavy feed during route changes.
+          TargetPlatform.android: FadeUpwardsPageTransitionsBuilder(),
         },
       ),
       popupMenuTheme: PopupMenuThemeData(
@@ -182,6 +181,7 @@ class C001APKAPP extends StatelessWidget {
       ),
     ), fontChoice: fontChoice);
     return GetMaterialApp(
+      showCheckedModeBanner: false,
       title: Constants.APP_NAME,
       locale: const Locale('zh', 'CN'),
       supportedLocales: const [Locale('zh', 'CN')],

@@ -180,11 +180,9 @@ class _MainPageState extends State<MainPage> {
     } else if (index == 1 && _selectedIndex == 1) {
       _pageScrollController.setIndex(TabType.FOLLOW.index);
     }
-    _contrller.animateToPage(
-      index,
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.ease,
-    );
+    // Avoid animating two image-heavy root pages simultaneously.
+    if (index == _selectedIndex) return;
+    _contrller.jumpToPage(index);
     _selectedIndex = index;
     _indexSctream.add(index);
   }

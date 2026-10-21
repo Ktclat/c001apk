@@ -40,7 +40,11 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
+class _HomePageState extends State<HomePage>
+    with TickerProviderStateMixin, AutomaticKeepAliveClientMixin<HomePage> {
+  // Keep the nested tab selection and scroll state across root navigation.
+  @override
+  bool get wantKeepAlive => true;
   late TabController _tabController;
   StreamSubscription<int>? _returnTopSubscription;
   final ReturnTopController _pageScrollController =
@@ -96,6 +100,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
