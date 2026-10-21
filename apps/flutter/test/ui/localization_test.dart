@@ -223,7 +223,7 @@ void main() {
     await tester.pumpWidget(const C001APKAPP());
     await tester.pump(const Duration(milliseconds: 500));
     final root = tester.widget<GetMaterialApp>(find.byType(GetMaterialApp));
-    expect(root.showCheckedModeBanner, isFalse);
+    expect(root.debugShowCheckedModeBanner, isFalse);
     final homeState = tester.state(find.byType(HomePage));
     final context = tester.element(find.byType(NavigationBar));
     expect(Localizations.localeOf(context), const Locale('zh', 'CN'));

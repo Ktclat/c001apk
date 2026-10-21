@@ -181,7 +181,7 @@ class C001APKAPP extends StatelessWidget {
       ),
     ), fontChoice: fontChoice);
     return GetMaterialApp(
-      showCheckedModeBanner: false,
+      debugShowCheckedModeBanner: false,
       title: Constants.APP_NAME,
       locale: const Locale('zh', 'CN'),
       supportedLocales: const [Locale('zh', 'CN')],
