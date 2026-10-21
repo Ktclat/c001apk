@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:c001apk_flutter/utils/storage_util.dart';
+import 'package:c001apk_flutter/utils/device_profile.dart';
+import 'package:c001apk_flutter/utils/official_device_identity.dart';
 import 'package:c001apk_flutter/utils/token_util.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
@@ -102,6 +104,85 @@ void main() {
         throwsFormatException);
     expect(GStorage.settings.toMap(), corrupt);
   });
+  test('manually entered ShuzlmID is independently validated', () {
+    expect(
+        OfficialDeviceIdentity.parseManual(
+            'ShuzlmID: synthetic_custom_identity_123456'),
+        'synthetic_custom_identity_123456');
+    expect(OfficialDeviceIdentity.parseManual('synthetic_custom_123456'),
+        'synthetic_custom_123456');
+    for (final input in [
+      'AndroidID: 01234567890',
+      'UUID: 01234567890',
+      'OAID: 01234567890',
+      'ShuzlmID: abc\nShuzlmID: def',
+      ''
+    ]) {
+      expect(() => OfficialDeviceIdentity.parseManual(input),
+          throwsFormatException);
+    }
+  });
+  test('manual editor preserves account fields, MAC and unrelated settings',
+      () async {
+    final before = GStorage.settings.toMap();
+    await GStorage.saveManualDeviceInfo(
+      profile: const DeviceProfile(
+          'NewMaker', 'NewBrand', 'NewModel', 'X.2026.01', '35', '15'),
+      manualShuzlmId: 'synthetic_custom_identity_123456',
+    );
+    expect(decode(GStorage.xAppDevice),
+        'synthetic_custom_identity_123456; ; ; 02:11:22:33:44:55; '
+        'NewMaker; NewBrand; NewModel; X.2026.01; null');
+    expect(GStorage.szlmId, 'synthetic_custom_identity_123456');
+    expect(GStorage.model, 'NewModel');
+    expect(GStorage.sdkInt, '35');
+    expect(GStorage.userAgent, contains('NewModel'));
+    expect(GStorage.userAgent, contains('Android 15'));
+    for (final key in [
+      SettingsBoxKey.uid, SettingsBoxKey.token, 'unrelated-setting'
+    ]) {
+      expect(GStorage.settings.get(key), before[key]);
+    }
+  });
+  test('blank manual ID retains the current installation identity', () async {
+    await GStorage.saveManualDeviceInfo(
+      profile: const DeviceProfile(
+          'Changed', 'brand', 'model', 'build', '33', '13'),
+    );
+    expect(decode(GStorage.xAppDevice).split(';').first, 'synthetic-install-identity');
+    expect(GStorage.szlmId, isEmpty);
+  });
+  test('invalid manual fields and bad stored encoding never overwrite data',
+      () async {
+    final before = GStorage.settings.toMap();
+    await expectLater(
+      GStorage.saveManualDeviceInfo(
+        profile: const DeviceProfile(
+            'Maker', 'bad;brand', 'Model', 'Build', '33', '13'),
+      ),
+      throwsFormatException,
+    );
+    await expectLater(
+      GStorage.saveManualDeviceInfo(
+        profile: const DeviceProfile(
+            'Maker', 'Brand', 'Model', 'Build', '33', '13'),
+        manualShuzlmId: 'OAID: invalid',
+      ),
+      throwsFormatException,
+    );
+    expect(GStorage.settings.toMap(), before);
+    await GStorage.settings.put(SettingsBoxKey.xAppDevice, 'not-base64');
+    final corrupt = GStorage.settings.toMap();
+    await expectLater(
+      GStorage.saveManualDeviceInfo(
+        profile: const DeviceProfile(
+            'Maker', 'Brand', 'Model', 'Build', '33', '13'),
+      ),
+      throwsFormatException,
+    );
+    expect(GStorage.settings.toMap(), corrupt);
+  });
+
   test('reset keeps imported identity and uses a consistent desktop profile',
       () async {
     await GStorage.importOfficialDeviceIdentity(

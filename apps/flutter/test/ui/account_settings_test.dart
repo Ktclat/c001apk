@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:c001apk_flutter/pages/settings/settings_page.dart';
 import 'package:c001apk_flutter/components/html_text.dart';
 import 'package:c001apk_flutter/components/settings/font_choice_tile.dart';
+import 'package:c001apk_flutter/components/settings/reading_preset_tile.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
 import 'package:c001apk_flutter/utils/app_theme.dart';
 import 'package:c001apk_flutter/utils/reading_preset.dart';
@@ -161,6 +162,24 @@ void main() {
     await GStorage.setFontChoice(AppFontChoice.material);
     expect((htmlText('中文动态') as HtmlWidget).textStyle?.fontFamily, isNull);
   });
+  testWidgets('reading style can be selected without filesystem IO',
+      (tester) async {
+    ReadingPreset? selected;
+    await tester.pumpWidget(GetMaterialApp(
+      home: Scaffold(body: ReadingPresetTile(onSelected: (value) {
+        selected = value;
+      })),
+    ));
+    await tester.tap(find.text('正文排版'));
+    await tester.pumpAndSettle();
+    expect(find.text('舒适阅读（推荐）'), findsOneWidget);
+    await tester.tap(find.text('原版排版'));
+    await tester.pumpAndSettle();
+    expect(selected, ReadingPreset.original);
+    expect(GStorage.readingPreset, ReadingPreset.comfortable);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('the font picker reports a selection without disk IO',
       (tester) async {
     tester.view.physicalSize = const Size(400, 820);

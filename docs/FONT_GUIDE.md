@@ -59,3 +59,13 @@ theme.textTheme.apply(fontFamily: 'sans-serif');
 - 某些系统上两种模式可能近乎一致，应以设备实测为准，不能只按菜单选择判断已经应用了厂商字体。
 
 参考：[Flutter 平台字体说明](https://docs.flutter.dev/ui/adaptive-responsive/platform-adaptations)、[Flutter 自定义字体文档](https://docs.flutter.dev/cookbook/design/fonts)、[Android Material 3 Typography](https://developer.android.com/develop/ui/compose/designsystems/material3)。
+
+
+## 中文帖子排版（2026-10）
+
+在 **设置 → 外观与字体 → 正文排版** 增加与界面字体分离的选项：
+
+- **舒适阅读（默认）**：帖子、文章与主要评论正文 15sp、400 字重、1.42 行高；帖子标题 16sp、500 字重，不再全加粗。
+- **原版排版**：沿用更早上游 [bggRGjQaUbCoE/c001apk-flutter](https://github.com/bggRGjQaUbCoE/c001apk-flutter/blob/main/lib/components/cards/feed_card.dart) 的 16sp 正文/1.5 行高与粗体标题，便于对比。
+
+两种排版仍服从应用及系统字号缩放，字体家族也仍服从“界面字体”选择。本次只是调整排版配置，**没有打包字体文件**。如截图中仍明显过粗，可对比手机的“加粗文字”系统开关及两种字体映射的差异。原帖 HTML 内作者明确使用的加粗、链接仍应保留。

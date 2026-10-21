@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:c001apk_flutter/pages/settings/device_identity_page.dart';
+import 'package:c001apk_flutter/pages/settings/manual_device_info_page.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
 import 'package:c001apk_flutter/utils/token_util.dart';
 import 'package:flutter/material.dart';
@@ -77,6 +78,42 @@ void main() {
     expect(save.onPressed, isNull);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('manual editor saves a changed profile without clipboard access',
+      (tester) async {
+    tester.view.physicalSize = const Size(420, 1300);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.runAsync(() => GStorage.settings.putAll({
+          SettingsBoxKey.manufacturer: 'Maker',
+          SettingsBoxKey.brand: 'Brand',
+          SettingsBoxKey.model: 'Model',
+          SettingsBoxKey.buildNumber: 'Build',
+          SettingsBoxKey.sdkInt: '33',
+          SettingsBoxKey.androidVersion: '13'
+        }));
+    await tester.pumpWidget(const MaterialApp(home: ManualDeviceInfoPage()));
+    expect(find.text('手动填写设备信息'), findsOneWidget);
+    await tester.enterText(find.byKey(const Key('manual-shuzlm-id')),
+        'synthetic_custom_identity_123456');
+    await tester.enterText(find.byKey(const Key('manual-model')), 'CustomPhone');
+    await tester.ensureVisible(find.text('保存并应用'));
+    await tester.runAsync(() async {
+      await tester.tap(find.text('保存并应用'));
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+    });
+    await tester.pumpAndSettle();
+    expect(GStorage.model, 'CustomPhone');
+    expect(GStorage.szlmId, 'synthetic_custom_identity_123456');
+    expect(
+        tester.widget<TextField>(find.byKey(const Key('manual-shuzlm-id')))
+            .controller!.text,
+        isEmpty);
+    expect(find.textContaining('已保存'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('missing official client gives an immediate installation prompt',
       (tester) async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
