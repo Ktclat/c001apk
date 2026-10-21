@@ -18,7 +18,7 @@
 
 ## Android 安装与构建
 
-当前可在 [Android CI](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml) 打开最近一次运行记录，在 **Artifacts** 下载 `c001apk-android-debug`（ZIP 内含 `app-debug.apk`）。**绿色 APK 构建任务只表示成功编译；必须再核对测试任务是否通过。**
+当前可在 [Android CI](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml) 打开最近一次运行记录，在 **Artifacts** 下载 `c001apk-android-profile`（AOT，适合性能体验测试）或 `c001apk-android-debug`（开发调试）。右上角 DEBUG 横幅已隐藏，但 **Debug 模式性能仍低于 Profile**。**绿色 APK 构建任务只表示成功编译；必须再核对测试任务是否通过。**
 
 本仓库 Android 应用包名调整为 `io.github.ktclat.c001apk`，可与原项目安装包并存。**包名变更不会迁移旧应用的登录状态、收藏和本地存储**，请按需在旧应用中保留或备份数据；Debug 包使用开发签名，不等于正式发布。详见[构建与签名说明](docs/CI.md)。
 
@@ -29,6 +29,7 @@ flutter pub get --enforce-lockfile
 flutter analyze --no-pub --no-fatal-infos
 flutter test --no-pub
 flutter build apk --debug --no-pub
+flutter build apk --profile --no-pub
 ```
 
 ## 截图与视觉素材

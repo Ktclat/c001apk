@@ -8,6 +8,7 @@ import 'package:c001apk_flutter/pages/message/message_controller.dart';
 import 'package:c001apk_flutter/pages/local_follow/local_follow_page.dart';
 import 'package:c001apk_flutter/constants/constants.dart';
 import 'package:c001apk_flutter/main.dart';
+import 'package:c001apk_flutter/pages/home/home_page.dart';
 import 'package:c001apk_flutter/components/settings/drop_down_menu_item.dart';
 import 'package:c001apk_flutter/components/cards/feed_card.dart';
 import 'package:c001apk_flutter/logic/model/feed/datum.dart';
@@ -221,6 +222,9 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const C001APKAPP());
     await tester.pump(const Duration(milliseconds: 500));
+    final root = tester.widget<GetMaterialApp>(find.byType(GetMaterialApp));
+    expect(root.showCheckedModeBanner, isFalse);
+    final homeState = tester.state(find.byType(HomePage));
     final context = tester.element(find.byType(NavigationBar));
     expect(Localizations.localeOf(context), const Locale('zh', 'CN'));
     final material = MaterialLocalizations.of(context);
@@ -269,6 +273,13 @@ void main() {
     expect(tester.getTopLeft(localCard).dy - tester.getBottomLeft(divider).dy,
         lessThan(20));
     expect(find.text('Settings'), findsNothing);
+    // Re-enter Home from the navigation rail without discarding the
+    // expensive nested feed tabs or their existing scroll state.
+    await tester.tap(find.descendant(
+        of: find.byType(NavigationRail),
+        matching: find.byIcon(Icons.home_outlined)));
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(HomePage)), same(homeState));
     await tester.pumpWidget(const SizedBox.shrink());
   });
 

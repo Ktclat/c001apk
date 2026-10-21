@@ -12,13 +12,18 @@
 2. `flutter analyze --no-pub --no-fatal-infos`（error 和 warning 不能通过；部分 info 仅记录）
 3. 先运行账号管理与字体的集中回归测试，防止单个超时隐藏错误
 4. 再运行所有离线 Flutter 测试
-5. Android Debug APK 使用独立 job 构建并上传，不依赖测试 job 的状态；**只有两项任务都成功才能宣称此版本检查通过**
+5. Android Debug 与 Profile APK 使用独立 job 构建并上传，不依赖测试 job 的状态；**只有两项任务都成功才能宣称此版本检查通过**
 
 测试设有明确超时，不能把卡住的测试删掉或隐藏。在线 API / 人机验证的测试默认跳过，离线测试全部通过也不表示真实账号服务稳定。
 
-## 下载 Debug APK
+## 下载 Android 测试 APK
 
-在 [Android CI](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml) 中打开想使用的运行记录，展开 `Build installable Android debug APK` 看是否绿色；在 Artifacts 区域下载 **`c001apk-android-debug`**。解压后安装 `app-debug.apk`。产物保留 14 天。Artifacts 下载可能需要登录 GitHub。
+在 [Android CI](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml) 中打开对应提交的运行记录，展开 `Build Android debug and profile APKs` 确认任务成功，再到 Artifacts 下载（保留 14 天，可能需要登录 GitHub）：
+
+- **`c001apk-android-profile` → `app-profile.apk`**：推荐用于比较页面切换流畅度。Profile 使用 AOT 编译，较接近 Release，但仍有少量性能分析开销；它并非正式发行版。
+- **`c001apk-android-debug` → `app-debug.apk`**：开发调试包；JIT 和断言会影响性能。右上角的 DEBUG 字样已经隐藏，但程序仍在 Debug 模式运行。
+
+这两种构建都不是正式签名版本，不同构建之间可能无法直接覆盖安装。不要在没有备份本地数据的情况下卸载已有应用。
 
 Android 本 fork 的 applicationId 为 `io.github.ktclat.c001apk`；与原维护仓库的 APK 包名不同，可以并存，但本地数据不会自动迁移。Debug APK 仍没有正式发布签名；未来本仓库发布新版时，签名一致才能覆盖安装。卸载任意旧版前均应备份该应用本地数据。Debug APK 不是正式版，也不自动成为 GitHub Release。
 
@@ -32,6 +37,7 @@ flutter pub get --enforce-lockfile
 flutter analyze --no-pub --no-fatal-infos
 flutter test --no-pub
 flutter build apk --debug --no-pub
+flutter build apk --profile --no-pub
 ```
 
 Gradle 使用系统 JDK 17；必要时执行 `flutter config --jdk-dir=/path/to/jdk17`。Android SDK 包括 `platforms;android-34`、`build-tools;34.0.0`、`build-tools;30.0.3` 和 `ndk;23.1.7779620`。

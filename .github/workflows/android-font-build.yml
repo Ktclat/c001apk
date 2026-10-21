@@ -47,7 +47,7 @@ jobs:
         run: timeout 420s flutter test --no-pub --reporter expanded
 
   android-debug:
-    name: Build installable Android debug APK
+    name: Build Android debug and profile APKs
     runs-on: ubuntu-22.04
     timeout-minutes: 40
     defaults:
@@ -81,5 +81,16 @@ jobs:
         with:
           name: c001apk-android-debug
           path: apps/flutter/build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      # AOT-compiled profile builds are more representative of real-world
+      # navigation performance than JIT debug builds. They are not releases.
+      - name: Compile Android profile APK
+        run: flutter build apk --profile --no-pub
+      - name: Upload profile APK
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: c001apk-android-profile
+          path: apps/flutter/build/app/outputs/flutter-apk/app-profile.apk
           if-no-files-found: error
           retention-days: 14
