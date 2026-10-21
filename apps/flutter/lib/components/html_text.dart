@@ -60,6 +60,10 @@ Widget htmlText(
       return true;
     },
     textStyle: TextStyle(
+      // HtmlWidget receives its own root text style. Match the font choice
+      // used by Material widgets so feeds, articles and replies stay aligned.
+      fontFamily:
+          GStorage.fontChoice.familyForPlatform(Theme.of(Get.context!).platform),
       fontSize: fontSize,
       height: 1.5,
       fontWeight: isBold ? FontWeight.bold : FontWeight.normal,

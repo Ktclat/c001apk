@@ -137,12 +137,9 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('跟随系统（推荐）'), findsOneWidget);
     await tester.tap(find.text('Material 默认'));
-    await tester.pump();
-    // Hive writes complete on the real IO event loop; WidgetTester uses
-    // fake async, so drain the write before disposing the widget tree.
-    await tester.runAsync(
-        () => GStorage.settings.flush().timeout(const Duration(seconds: 8)));
     await tester.pumpAndSettle();
+    // The widget must close without waiting for Hive's real disk event loop.
+    // Persistence is covered separately outside WidgetTester's fake async.
     expect(GStorage.fontChoice, AppFontChoice.material);
     expect(find.text('当前：Material 默认'), findsOneWidget);
     // Release ValueListenableBuilder subscriptions before the next test resets

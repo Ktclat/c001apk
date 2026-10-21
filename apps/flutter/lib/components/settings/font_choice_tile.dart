@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
@@ -69,12 +71,12 @@ class FontChoiceTile extends StatelessWidget {
                           ),
                         ],
                       ),
-                      onChanged: (value) async {
+                      onChanged: (value) {
                         if (value == null) return;
-                        await GStorage.setFontChoice(value);
-                        if (sheetContext.mounted) {
-                          Navigator.of(sheetContext).pop();
-                        }
+                        // Hive publishes the new value synchronously. Do not
+                        // hold the sheet open while waiting for disk IO.
+                        unawaited(GStorage.setFontChoice(value));
+                        Navigator.of(sheetContext).pop();
                       },
                     ),
                   const SizedBox(height: 12),
