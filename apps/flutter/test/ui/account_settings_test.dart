@@ -5,6 +5,7 @@ import 'package:c001apk_flutter/components/html_text.dart';
 import 'package:c001apk_flutter/components/settings/font_choice_tile.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
 import 'package:c001apk_flutter/utils/app_theme.dart';
+import 'package:c001apk_flutter/utils/reading_preset.dart';
 import 'package:c001apk_flutter/pages/home/app/app_list_page.dart';
 import 'package:c001apk_flutter/pages/home/return_top_controller.dart';
 import 'package:flutter/services.dart';
@@ -100,6 +101,7 @@ void main() {
     expect(find.text('动态取色'), findsOneWidget);
     expect(find.text('字体大小'), findsOneWidget);
     expect(find.text('界面字体'), findsOneWidget);
+    expect(find.text('正文排版'), findsOneWidget);
     expect(find.byType(BackButton), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -131,6 +133,26 @@ void main() {
     await GStorage.settings.flush();
     expect(GStorage.fontChoice, AppFontChoice.material);
   });
+  test('reading preset adjusts only feed typography and persists', () async {
+    expect(GStorage.readingPreset, ReadingPreset.comfortable);
+    var body = htmlText('中文帖子', role: HtmlTextRole.feedBody) as HtmlWidget;
+    var title = htmlText('帖子标题', role: HtmlTextRole.feedTitle) as HtmlWidget;
+    expect(body.textStyle!.fontSize, 15);
+    expect(body.textStyle!.fontWeight, FontWeight.w400);
+    expect(body.textStyle!.height, 1.42);
+    expect(title.textStyle!.fontWeight, FontWeight.w500);
+    await GStorage.setReadingPreset(ReadingPreset.original);
+    expect(GStorage.readingPreset, ReadingPreset.original);
+    body = htmlText('中文帖子', role: HtmlTextRole.feedBody) as HtmlWidget;
+    title = htmlText('帖子标题', role: HtmlTextRole.feedTitle) as HtmlWidget;
+    expect(body.textStyle!.fontSize, 16);
+    expect(body.textStyle!.height, 1.5);
+    expect(title.textStyle!.fontWeight, FontWeight.bold);
+    expect((htmlText('普通控件') as HtmlWidget).textStyle!.fontSize, 15);
+    await GStorage.settings.flush();
+    expect(ReadingPreset.fromStorage('invalid'), ReadingPreset.comfortable);
+  });
+
   test('feed HTML text follows the chosen Android font', () async {
     debugDefaultTargetPlatformOverride = TargetPlatform.android;
     addTearDown(() => debugDefaultTargetPlatformOverride = null);

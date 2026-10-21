@@ -15,6 +15,7 @@ import '../../logic/accounts/account_store.dart';
 import '../../components/settings/drop_down_menu_item.dart';
 import '../../components/settings/item_title.dart';
 import '../../components/settings/font_choice_tile.dart';
+import '../../components/settings/reading_preset_tile.dart';
 import '../../components/settings/switch_item.dart';
 import '../../constants/constants.dart';
 import '../../pages/blacklist/black_list_page.dart' show BlackListType;
@@ -188,6 +189,7 @@ class _SettingsDetailPageState extends State<SettingsDetailPage> {
               forceAppUpdate: true,
             ),
             const FontChoiceTile(),
+            const ReadingPresetTile(),
             ListTile(
               title: const Text('字体大小'),
               subtitle:

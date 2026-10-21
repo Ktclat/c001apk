@@ -80,6 +80,7 @@ class C001APKAPP extends StatelessWidget {
           SettingsBoxKey.selectedTheme,
           SettingsBoxKey.fontScale,
           SettingsBoxKey.fontChoice,
+          SettingsBoxKey.readingPreset,
         ]),
         builder: (context, settings, _) =>
             _buildApp(context, lightDynamic, darkDynamic),

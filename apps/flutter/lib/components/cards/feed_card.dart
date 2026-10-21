@@ -319,8 +319,7 @@ class FeedCard extends StatelessWidget {
           ),
           child: htmlText(
             data.messageTitle.orEmpty,
-            fontSize: 16,
-            isBold: true,
+            role: HtmlTextRole.feedTitle,
           ),
         ),
       Padding(
@@ -331,7 +330,7 @@ class FeedCard extends StatelessWidget {
         ),
         child: htmlText(
           data.message.orEmpty,
-          fontSize: 16,
+          role: HtmlTextRole.feedBody,
           onClick: _onViewFeed,
         ),
       )

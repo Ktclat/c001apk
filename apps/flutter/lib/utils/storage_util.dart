@@ -16,6 +16,7 @@ import '../utils/global_data.dart';
 import '../utils/token_util.dart';
 import 'storage_path.dart';
 import 'app_theme.dart';
+import 'reading_preset.dart';
 import 'device_profile.dart';
 import 'official_device_identity.dart';
 
@@ -286,6 +287,12 @@ class GStorage {
   static Future<void> setFontChoice(AppFontChoice value) =>
       settings.put(SettingsBoxKey.fontChoice, value.index);
 
+  static ReadingPreset get readingPreset => ReadingPreset.fromStorage(
+      settings.get(SettingsBoxKey.readingPreset, defaultValue: 0));
+
+  static Future<void> setReadingPreset(ReadingPreset value) =>
+      settings.put(SettingsBoxKey.readingPreset, value.index);
+
   static double get fontScale {
     return settings.get(SettingsBoxKey.fontScale, defaultValue: 1.0);
   }
@@ -536,6 +543,7 @@ class SettingsBoxKey {
       szlmId = 'szlmId',
       fontScale = 'fontScale',
       fontChoice = 'fontChoice',
+      readingPreset = 'readingPreset',
       followType = 'followType',
       imageQuality = 'imageQuality',
       imageDim = 'imageDim',

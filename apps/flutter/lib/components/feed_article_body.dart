@@ -19,8 +19,7 @@ Widget feedArticleBody(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: htmlText(
           data.title.orEmpty,
-          fontSize: 17,
-          isBold: true,
+          role: HtmlTextRole.feedTitle,
         ),
       );
     case 'text':
@@ -33,7 +32,7 @@ Widget feedArticleBody(
           },
           child: htmlText(
             data.message.orEmpty,
-            fontSize: 16,
+            role: HtmlTextRole.feedBody,
           ),
         ),
       );

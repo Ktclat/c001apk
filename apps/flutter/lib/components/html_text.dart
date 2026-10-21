@@ -7,12 +7,16 @@ import 'package:get/get.dart';
 import '../utils/emoji_util.dart';
 import '../utils/extensions.dart';
 import '../utils/storage_util.dart';
+import '../utils/reading_preset.dart';
 import '../utils/utils.dart';
+
+enum HtmlTextRole { normal, feedBody, feedTitle }
 
 Widget htmlText(
   String html, {
   double fontSize = 15,
   bool isBold = false,
+  HtmlTextRole role = HtmlTextRole.normal,
   List<String>? picArr,
   Function? onClick,
   Function? onShowTotalReply,
@@ -34,6 +38,8 @@ Widget htmlText(
       },
     );
   }
+
+  final reading = GStorage.readingPreset;
 
   return HtmlWidget(
     htmlConvert ?? html,
@@ -65,9 +71,21 @@ Widget htmlText(
       // used by Material widgets so feeds, articles and replies stay aligned.
       fontFamily:
           GStorage.fontChoice.familyForPlatform(defaultTargetPlatform),
-      fontSize: fontSize,
-      height: 1.5,
-      fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+      fontSize: switch (role) {
+        HtmlTextRole.feedBody => reading.bodySize,
+        HtmlTextRole.feedTitle => reading.titleSize,
+        HtmlTextRole.normal => fontSize,
+      },
+      height: switch (role) {
+        HtmlTextRole.feedBody => reading.bodyHeight,
+        HtmlTextRole.feedTitle => reading.titleHeight,
+        HtmlTextRole.normal => 1.5,
+      },
+      fontWeight: switch (role) {
+        HtmlTextRole.feedBody => FontWeight.w400,
+        HtmlTextRole.feedTitle => reading.titleWeight,
+        HtmlTextRole.normal => isBold ? FontWeight.bold : FontWeight.w400,
+      },
     ),
     customStylesBuilder: (element) {
       switch (element.localName) {
