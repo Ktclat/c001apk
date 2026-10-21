@@ -31,19 +31,30 @@ class FloatingTabBar extends StatelessWidget {
     return Semantics(
       container: true,
       label: '悬浮 Tab 导航',
-      child: Material(
-        elevation: 8,
-        shadowColor: colors.shadow.withOpacity(0.24),
-        shape: RoundedRectangleBorder(
+      child: DecoratedBox(
+        decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(34),
-          side: BorderSide(
-            width: 0.7,
-            color: colors.outlineVariant.withOpacity(0.45),
-          ),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withOpacity(0.10),
+              blurRadius: 18,
+              spreadRadius: -4,
+              offset: const Offset(0, 6),
+            ),
+          ],
         ),
-        clipBehavior: Clip.antiAlias,
-        color: colors.surfaceContainerHigh,
-        child: NavigationBar(
+        child: Material(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(34),
+            side: BorderSide(
+              width: 0.6,
+              color: colors.outlineVariant.withOpacity(0.32),
+            ),
+          ),
+          clipBehavior: Clip.antiAlias,
+          color: colors.surfaceContainerHigh,
+          child: NavigationBar(
           height: height,
           elevation: 0,
           backgroundColor: Colors.transparent,
@@ -53,6 +64,7 @@ class FloatingTabBar extends StatelessWidget {
           onDestinationSelected: onDestinationSelected,
           labelBehavior:
               NavigationDestinationLabelBehavior.onlyShowSelected,
+          ),
         ),
       ),
     );
