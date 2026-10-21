@@ -51,9 +51,9 @@ class _MainPageState extends State<MainPage> {
       if (delta == 0) return false;
       if (_scrollTravel.sign != delta.sign) _scrollTravel = 0;
       _scrollTravel = (_scrollTravel + delta).clamp(-80.0, 80.0);
-      if (_scrollTravel >= 28 && _dockVisible) {
+      if (_scrollTravel >= 28 && _dockVisible.value) {
         _dockVisible.value = false;
-      } else if (_scrollTravel <= -20 && !_dockVisible) {
+      } else if (_scrollTravel <= -20 && !_dockVisible.value) {
         _dockVisible.value = true;
       }
     }
