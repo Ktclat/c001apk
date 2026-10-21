@@ -1,85 +1,42 @@
-# 字体与中文排版改造说明
+# 字体与中文排版 · 设计审阅说明
 
-本项目由 [Ktclat/c001apk](https://github.com/Ktclat/c001apk) 维护，其代码源自 [TG-Twilight/c001apk](https://github.com/TG-Twilight/c001apk)（AGPL-3.0），Flutter 工程位于 `apps/flutter`。
+## 这轮为什么重做
 
-## 为什么要改？
+用户的主页与图文详情截图表明：中文笔画显得过重、标题正文不分层、长文章密密麻麻，且 `**强调文字**` 被显示为星号。原版 Flutter / Android 默认字体回退会因品牌、系统版本发生变化，**只调整字号不够**。
 
-上游 `pubspec.yaml` 没有声明专用字体文件；Flutter Material 在 Android 默认采用 Roboto，中文通过系统字体回退渲染。上游 `utils/app_theme.dart` 的顶部标题 16sp、设置说明 12sp，标题/说明字重与中文行高缺乏统一规范。
+参考资料：[Flutter 字体回退说明](https://api.flutter.dev/flutter/painting/TextStyle-class.html)，更早的 [c001apk-flutter](https://github.com/bggRGjQaUbCoE/c001apk-flutter/blob/main/lib/components/html_text.dart)（原来 16sp 正文、1.5 行高）。本分支不再直接沿用那套密集排版。
 
-字体问题与字号、行高、视觉层级是分开的：仅仅把所有文字替换为另一种字体，并不一定改善阅读。
-
-## 本分支的实现
+## 新版 UI 字体
 
 **设置 → 外观与字体 → 界面字体**：
 
-- **跟随系统（推荐，默认）**：Android 指定 `sans-serif` 字体家族，让 Flutter 向系统字体映射请求无衬线字。设备若将 OEM 字体或用户设置的字体映射到这一家族，就能显示对应字体；厂商实现不同，因此不能保证所有 ROM 都生效。本仓库主要验证 Android；其他操作系统不在维护范围。
-- **Material 默认**：不强制字体家族，使用 Flutter/Material 的平台默认行为，便于与上游外观对照。
+- **思源黑体 · 清爽（新版推荐）**：Noto Sans CJK SC 字体，固定 w400 Regular、w500 Medium、w700 Bold 文件，简体中文常用字子集，离线渲染。新安装默认使用；已有安装首次升级时也会**一次性切换到新版**，其后个人设置继续有效。
+- **跟随系统**：使用 Android `sans-serif` 映射；可能随着小米、OPPO、vivo、三星等 ROM 与系统加粗设置发生变化。
+- **Material 原版**：尽量接近原 Flutter 的平台默认字体，便于对照。
 
-设置保存在本地 Hive `settings` 中，切换后自动更新当前页面、亮色及深色主题。原有的字体大小滑块仍保留，并与 Android 系统无障碍文字缩放叠加。
+**设置 → 外观与字体 → 正文排版**仍有“舒适阅读”和“原版排版”两个选项，独立于字体家族、系统文字缩放和应用字号滑块。
 
-通用排版同时作了温和调整：顶部标题 18sp/600，列表标题 16sp/500，列表说明 13sp/400；正文、说明增加适度行高，避免过密。此功能不对 WebView 展示的网页强制改字体，也不会突破 Android ROM/Flutter 引擎的字体回退限制。
+## 版式规范（sp）
 
-### Android / Flutter 关键实现
-
-`apps/flutter/lib/utils/app_theme.dart`：
-
-```dart
-fontChoice.familyForPlatform(TargetPlatform.android); // system => 'sans-serif'
-theme.textTheme.apply(fontFamily: 'sans-serif');
-```
-
-`apps/flutter/lib/main.dart`：同时为亮暗主题调用 `applyAppTypography`，并监听 `SettingsBoxKey.fontChoice`。
-
-`apps/flutter/lib/components/settings/font_choice_tile.dart`：显示字体选择器和两种方案的文字预览。
-
-## 其他开源 Android 软件的字体方式
-
-以下为**源代码里的用法**，不是根据截图猜测：
-
-| 软件 | 可查到的方案 | 对本项目的启示 |
+| 区域 | 新版舒适阅读 | 旧版排版 |
 | --- | --- | --- |
-| [Mihon](https://github.com/mihonapp/mihon) | UI 采用 Jetpack Compose 的 MaterialTheme.typography；Markdown 代码片段单独指定 Monospace | 普通正文延续设计系统字体，特殊场景再换字体 |
-| [Droid-ify](https://github.com/Droid-ify/client) | 原生 Android 代码显式使用 `sans-serif-medium`、`sans-serif-light`，技术标识等单独使用 Monospace | 利用系统内置字重，而不是全局打包一套字体 |
-| [Material Files](https://github.com/zhanghai/MaterialFiles) | Android Material 3 样式里依赖 `m3_ref_typeface_plain_regular` 类型资源 | 借助 Material 默认字体与层级，保持系统一致性 |
+| 动态正文 | 14.5 / w400 / 行高 1.52 | 16 / w400 / 行高 1.50 |
+| 动态标题 | 15.5 / w500 / 行高 1.40 | 16 / w700 / 行高 1.50 |
+| 长文章正文 | 15 / w400 / 行高 1.52 | 16 / w400 / 行高 1.50 |
+| 长文章标题 | 16.5 / w500 / 行高 1.40 | 17 / w700 / 行高 1.50 |
+| 主要评论 | 14 / w400 / 行高 1.52 | 15 / w400 / 行高 1.50 |
 
-对应代码： [Mihon MarkdownRender.kt](https://github.com/mihonapp/mihon/blob/main/app/src/main/java/eu/kanade/presentation/manga/components/MarkdownRender.kt)、[Droid-ify Resources.kt](https://github.com/Droid-ify/client/blob/main/app/src/main/kotlin/com/looker/droidify/utility/extension/Resources.kt)、[Material Files styles_material3.xml](https://github.com/zhanghai/MaterialFiles/blob/master/app/src/main/res/values/styles_material3.xml)。
+链接、emoji、强调、嵌套评论继续单独处理。纯正文与标题颜色略柔和，保持足够对比度；禁止对整篇文章使用 w600/w700。简单 Markdown 粗体 `**文字**` 转为强调标签；超过两个连续换行的空白段落收敛到一个空段落。用于浏览动态的 HtmlWidget 与图文详情共用同一套字体样式，避免中英混排粗细不一致。
 
-## 适合手机中文界面的字体候选
+## 字体资源来源、许可和离线使用
 
-1. **系统默认无衬线字体**：首选。体积零增加，也最贴近手机自身风格；Android 原生/Pixel 系列常见为 Roboto + CJK 回退，OEM 系统可能映射为自己的字体。
-2. **Noto Sans CJK / 思源黑体**：字形完整、中性清晰，适合内容密集型阅读。采用 [SIL OFL 1.1](https://github.com/notofonts/noto-cjk/blob/main/Sans/LICENSE)，但把字体包嵌入 APK 会明显增加体积。本次没有内置。
-3. **霞鹜文楷**：有阅读感，适合长文章，可作为未来的「阅读字体」；不宜作为所有按钮/标题的 UI 字体。项目：[LXGW WenKai](https://github.com/lxgw/LxgwWenKai)。
-4. **MiSans**：部分小米设备的字体比较协调，但[小米官方授权](https://hyperos.mi.com/font/en/download/)对字体文件的再分发有条件限制，因此**不直接把字体文件加入本仓库**；仅通过系统字体映射使用。
+字体从 [CodePlayer/webfont-noto](https://github.com/CodePlayer/webfont-noto/tree/7af038d32866b387c64ef8e644abf5c303e48db6/dist/NotoSans/NotoSansCJKsc-hinted/subset/NotoSansCJKsc-hinted-standard) 的固定提交获取，原始许可为 **SIL OFL 1.1**。许可原文复制在 [OFL.txt](../apps/flutter/assets/fonts/OFL.txt)。本仓库不分发 OpenAI 专有字体。
 
-## 验证
+为了控制 git 仓库体积，不提交大体积二进制字体，而让 GitHub Actions 在编译前运行 `bash tools/fetch_fonts.sh`。此脚本要求所有文件的 Git blob SHA **完全匹配**；不匹配时中断构建。下载发生在**编译期**；安装到手机后的 APK 内已经带上字体，运行时无需联网。
 
-- 开发机终端：`cd apps/flutter && flutter pub get --enforce-lockfile && flutter analyze --no-pub --no-fatal-infos && flutter test --no-pub`
-- Android 手机上依次对比「跟随系统」和「Material 默认」，重点查看首页动态、长评论、文章、设置说明与输入框；再把系统字体改成其他样式复测。
-- 检查字体放大至 1.3× 以及系统大字体时，是否出现溢出、截断、按钮碰撞。
-- 某些系统上两种模式可能近乎一致，应以设备实测为准，不能只按菜单选择判断已经应用了厂商字体。
+从源码构建，请执行：
 
-参考：[Flutter 平台字体说明](https://docs.flutter.dev/ui/adaptive-responsive/platform-adaptations)、[Flutter 自定义字体文档](https://docs.flutter.dev/cookbook/design/fonts)、[Android Material 3 Typography](https://developer.android.com/develop/ui/compose/designsystems/material3)。
-
-
-## 中文帖子排版（2026-10）
-
-在 **设置 → 外观与字体 → 正文排版** 增加与界面字体分离的选项：
-
-- **舒适阅读（默认）**：帖子、文章与主要评论正文 15sp、400 字重、1.42 行高；帖子标题 16sp、500 字重，不再全加粗。
-- **原版排版**：沿用更早上游 [bggRGjQaUbCoE/c001apk-flutter](https://github.com/bggRGjQaUbCoE/c001apk-flutter/blob/main/lib/components/cards/feed_card.dart) 的 16sp 正文/1.5 行高与粗体标题，便于对比。
-
-两种排版仍服从应用及系统字号缩放，字体家族也仍服从“界面字体”选择。本次只是调整排版配置，**没有打包字体文件**。如截图中仍明显过粗，可对比手机的“加粗文字”系统开关及两种字体映射的差异。原帖 HTML 内作者明确使用的加粗、链接仍应保留。
-
-
-## 字体二次重构：内置 Noto Sans CJK SC
-
-旧系统/Material 选项依赖 ROM 中文字体回退，导致不同手机字形、字重、行距不一致。新安装默认 **思源黑体 · 清爽**，显式选择过旧字体的用户保留原偏好，可自行切换。采用真实 400/500/700 字重的简体中文标准子集，在 APK 中**离线可用**。
-
-来源为 [CodePlayer/webfont-noto](https://github.com/CodePlayer/webfont-noto/tree/7af038d32866b387c64ef8e644abf5c303e48db6/dist/NotoSans/NotoSansCJKsc-hinted/subset/NotoSansCJKsc-hinted-standard)，使用 SIL OFL 1.1，[许可原文](../apps/flutter/assets/fonts/OFL.txt)。仓库不会提交大体积字体二进制文件，而由固定提交与 Git blob SHA 校验的 `apps/flutter/tools/fetch_fonts.sh` 在构建时取得三个 OTF 文件，无法下载或验证则立刻构建失败。
-
-本地构建先运行：
-
-```sh
+```bash
 cd apps/flutter
 bash tools/fetch_fonts.sh
 flutter pub get --enforce-lockfile
@@ -88,4 +45,8 @@ flutter test --no-pub
 flutter build apk --profile --no-pub
 ```
 
-简体中文常见字以外的罕见字会回退系统字体。没有引入 OpenAI 的专有字体文件。
+## 审阅与验证边界
+
+自动化审阅在 390dp 宽度下绘制包含动态、长文章、评论、中文标点、英语和数字的 **合成预览图**；另在 320dp 与 1.3 倍字体下检查无溢出。预览生成于 `test/ui/typography_visual_review_test.dart`，CI 上传为 `c001apk-typography-review` 产物。另有字体字重、Markdown 与 Hive 迁移测试。
+
+**自动测试通过不代表用户提供的真实酷安帖子已经逐页目视验证，也不能代表所有 Android ROM 都相同。** 修改后的字体仍需用 Profile APK 在用户设备确认，尤其检查包含非常用字、emoji、图文混排与系统加粗设置的场景。若仍不合适，可切换系统字体或原版排版对照。

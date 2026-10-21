@@ -137,6 +137,19 @@ void main() {
     await GStorage.settings.flush();
     expect(GStorage.fontChoice, AppFontChoice.material);
   });
+  test('existing installations adopt new typography only once', () async {
+    await GStorage.settings.put(SettingsBoxKey.fontChoice, 0);
+    await GStorage.settings.put(SettingsBoxKey.readingPreset, 1);
+    await GStorage.settings.put('unrelated-setting', 'keep');
+    await GStorage.migrateTypographyV2();
+    expect(GStorage.fontChoice, AppFontChoice.notoSans);
+    expect(GStorage.readingPreset, ReadingPreset.comfortable);
+    expect(GStorage.settings.get('unrelated-setting'), 'keep');
+    await GStorage.setFontChoice(AppFontChoice.system);
+    await GStorage.migrateTypographyV2();
+    expect(GStorage.fontChoice, AppFontChoice.system);
+  });
+
   test('reading preset adjusts only feed typography and persists', () async {
     expect(GStorage.readingPreset, ReadingPreset.comfortable);
     var body = htmlText('中文帖子', role: HtmlTextRole.feedBody) as HtmlWidget;

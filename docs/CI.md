@@ -29,9 +29,10 @@ Android 本 fork 的 applicationId 为 `io.github.ktclat.c001apk`；与原维护
 
 ## Android 本地构建
 
-在 `apps/flutter` 目录运行：
+在 `apps/flutter` 目录运行（先拉取校验过的开源字体文件）：
 
 ```bash
+bash tools/fetch_fonts.sh
 flutter --version
 flutter pub get --enforce-lockfile
 flutter analyze --no-pub --no-fatal-infos
