@@ -322,14 +322,20 @@ void main() {
                 ),
               ),
               const Positioned(
-                left: 16,
-                right: 16,
+                left: 0,
+                right: 0,
                 bottom: 12,
-                child: FloatingTabBar(
-                  height: 78,
-                  destinations: destinations,
-                  selectedIndex: 0,
-                  onDestinationSelected: _noopSelected,
+                child: Center(
+                  heightFactor: 1,
+                  child: SizedBox(
+                    width: FloatingTabBar.width,
+                    child: FloatingTabBar(
+                      height: 62,
+                      destinations: destinations,
+                      selectedIndex: 0,
+                      onDestinationSelected: _noopSelected,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -341,6 +347,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
     expect(find.byType(FloatingTabBar), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing);
+    final dock = tester.getRect(find.byType(FloatingTabBar));
+    expect(dock.width, 268);
+    expect(dock.height, 62);
+    expect((dock.center.dx - 195).abs(), lessThan(1));
     final boundary = tester.renderObject<RenderRepaintBoundary>(
       find.byKey(const Key('floating-tab-review')),
     );

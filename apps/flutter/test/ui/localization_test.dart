@@ -20,6 +20,7 @@ import 'package:dio/dio.dart';
 import 'package:dynamic_color/samples.dart';
 import 'package:dynamic_color/test_utils.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
@@ -301,31 +302,78 @@ void main() {
     await tester.runAsync(() => GStorage.setFloatingTabBar(true));
     await tester.pumpAndSettle();
     expect(find.byType(FloatingTabBar), findsOneWidget);
-    expect(find.byType(NavigationBar), findsOneWidget);
+    expect(find.byType(NavigationBar), findsNothing,
+        reason: 'Never nest an entire NavigationBar inside a floating pill');
     expect(tester.state(find.byType(HomePage)), same(homeState));
     final floatingRect = tester.getRect(find.byType(FloatingTabBar));
-    expect(floatingRect.left, greaterThan(0));
-    expect(floatingRect.right, lessThan(390));
+    expect(floatingRect.width, lessThanOrEqualTo(280));
+    expect(floatingRect.height, lessThanOrEqualTo(72));
+    expect((floatingRect.center.dx - 195).abs(), lessThan(1));
+    expect(floatingRect.left, greaterThan(30));
+    expect(floatingRect.right, lessThan(360));
+    final tabHit = tester.getRect(
+        find.byKey(const ValueKey('floating-tab-hit-主页')));
+    expect(tabHit.height, greaterThanOrEqualTo(48));
+    expect(tabHit.width, greaterThanOrEqualTo(48));
     final rootPage = tester.getRect(find.byType(PageView).first);
     expect(rootPage.bottom, greaterThan(floatingRect.bottom - 1),
         reason: 'Root pages should paint underneath a genuinely floating tab');
 
-    await tester.tap(find.widgetWithText(NavigationDestination, '关注'));
+    await tester.tap(find.byKey(const ValueKey('floating-tab-hit-关注')));
     await tester.pumpAndSettle();
     expect(find.text('本地关注动态'), findsOneWidget);
-    expect(tester.widget<NavigationBar>(find.byType(NavigationBar))
+    expect(tester.widget<FloatingTabBar>(find.byType(FloatingTabBar))
         .selectedIndex, 1);
+
+    // A deliberate scroll down hides the dock and an upward scroll restores it.
+    final pageContext = tester.element(find.byType(PageView).first);
+    final metrics = FixedScrollMetrics(
+      minScrollExtent: 0,
+      maxScrollExtent: 1000,
+      pixels: 300,
+      viewportDimension: 700,
+      axisDirection: AxisDirection.down,
+      devicePixelRatio: 1,
+    );
+    ScrollUpdateNotification(
+      metrics: metrics,
+      context: pageContext,
+      scrollDelta: 36,
+      dragDetails: const DragUpdateDetails(),
+    ).dispatch(pageContext);
+    await tester.pumpAndSettle();
+    final hidden = tester.widget<AnimatedOpacity>(
+      find.ancestor(
+        of: find.byType(FloatingTabBar),
+        matching: find.byType(AnimatedOpacity),
+      ).first,
+    );
+    expect(hidden.opacity, 0);
+    ScrollUpdateNotification(
+      metrics: metrics,
+      context: pageContext,
+      scrollDelta: -32,
+      dragDetails: const DragUpdateDetails(),
+    ).dispatch(pageContext);
+    await tester.pumpAndSettle();
+    final visible = tester.widget<AnimatedOpacity>(
+      find.ancestor(
+        of: find.byType(FloatingTabBar),
+        matching: find.byType(AnimatedOpacity),
+      ).first,
+    );
+    expect(visible.opacity, 1);
 
     // Actual root scrollables add enough trailing space to scroll their
     // final card ABOVE the overlaid dock without creating a dead page band.
-    await tester.tap(find.widgetWithText(NavigationDestination, '我的'));
+    await tester.tap(find.byKey(const ValueKey('floating-tab-hit-我的')));
     await tester.pumpAndSettle();
     final myScroll = tester.widget<CustomScrollView>(
         find.byType(CustomScrollView).last);
     final myPadding = myScroll.slivers.whereType<SliverPadding>().first.padding
         as EdgeInsets;
     expect(myPadding.bottom, greaterThan(floatingRect.height));
-    await tester.tap(find.widgetWithText(NavigationDestination, '关注'));
+    await tester.tap(find.byKey(const ValueKey('floating-tab-hit-关注')));
     await tester.pumpAndSettle();
 
     // An IME must hide the dock (and not suddenly show the classic bar).
@@ -354,7 +402,7 @@ void main() {
     tester.view.physicalSize = const Size(390, 850);
     await tester.pump(const Duration(milliseconds: 500));
     expect(find.byType(FloatingTabBar), findsOneWidget);
-    expect(tester.widget<NavigationBar>(find.byType(NavigationBar))
+    expect(tester.widget<FloatingTabBar>(find.byType(FloatingTabBar))
         .selectedIndex, 1);
 
     await tester.runAsync(() => GStorage.setFloatingTabBar(false));
