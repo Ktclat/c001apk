@@ -55,8 +55,9 @@ Interpretation examples:
 - Home events rejected as inactive: compare selected Home identity and indices.
 - Root reports `accessible_navigation`: intentional protection, not a lost event.
 - Root reports `no_user_session`: update did not inherit observed user intent.
-- Root reaches `hide_threshold`, then a reveal lifecycle event: inspect the reset
-  reason instead of assuming the hide threshold never ran.
+- Root reaches `hide_progress` with `dockProgress: 1` (or `hide_threshold` when
+  motion is disabled), then a reveal lifecycle event: inspect the reset reason
+  instead of assuming the hide threshold never ran.
 - No consumed distance: the list may already be at an edge or not scrollable.
 
 ## Build identity and installation safety

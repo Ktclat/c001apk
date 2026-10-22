@@ -17,7 +17,7 @@ class NavigationBuildIdentity {
           ? 'profile'
           : 'debug';
   static String get label =>
-      '${diagnostic ? '显隐验证版 · ' : ''}${source != 'unidentified-local' && source.length > 12 ? source.substring(0, 12) : source} · $mode · CI $run';
+      '${diagnostic ? '动效验证版 · ' : ''}${source != 'unidentified-local' && source.length > 12 ? source.substring(0, 12) : source} · $mode · CI $run';
 }
 
 /// Opt-in, bounded, process-local diagnostics. Never records content, account
@@ -122,6 +122,14 @@ class NavigationDiagnostics {
     if (events.length > maxEvents) events.removeAt(0);
   }
 
+  void dockMotionChanged(double progress, double travelExtent) {
+    dockVisibilityChanged(progress < 1);
+    environment['dockInteractive'] = progress == 0;
+    environment['dockProgress'] = progress;
+    environment['dockOpacity'] = 1 - progress;
+    environment['dockTranslationY'] = progress * travelExtent;
+  }
+
   void dockVisibilityChanged(bool visible) {
     if (environment['dockVisible'] != visible) {
       environment['dockVisible'] = visible;
@@ -160,6 +168,7 @@ class NavigationDiagnostics {
     required bool visible,
     required double accumulated,
     double? consumed,
+    double progress = 0,
   }) {
     if (!recording) return;
     environment['dockVisible'] = visible;
@@ -171,6 +180,7 @@ class NavigationDiagnostics {
       'currentRoute': currentRoute,
       'dockVisible': visible,
       'accumulatedDp': accumulated,
+      'dockProgress': progress,
       if (consumed != null) 'consumedDp': consumed,
     });
   }

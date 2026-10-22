@@ -333,7 +333,8 @@ void main() {
     expect(tester.widget<FloatingTabBar>(find.byType(FloatingTabBar))
         .selectedIndex, 1);
 
-    // A deliberate scroll down hides the dock and an upward scroll restores it.
+    // Low-level notification lifecycle coverage, not physical-gesture proof.
+    // Actual Home touch/ballistic behavior is tested separately.
     // Dispatch from the selected root page, not the PageView itself.
     final pageContext = tester.element(find.byType(FollowFeedPage));
     final metrics = FixedScrollMetrics(
@@ -344,32 +345,67 @@ void main() {
       axisDirection: AxisDirection.down,
       devicePixelRatio: 1,
     );
+    ScrollStartNotification(
+      metrics: metrics,
+      context: pageContext,
+      dragDetails: DragStartDetails(globalPosition: Offset.zero),
+    ).dispatch(pageContext);
     ScrollUpdateNotification(
       metrics: metrics,
       context: pageContext,
       scrollDelta: 36,
       dragDetails: DragUpdateDetails(globalPosition: Offset.zero),
     ).dispatch(pageContext);
+    await tester.pump();
+    final partial = tester
+        .widget<AnimatedOpacity>(find
+            .ancestor(
+              of: find.byType(FloatingTabBar),
+              matching: find.byType(AnimatedOpacity),
+            )
+            .first)
+        .opacity;
+    expect(partial, greaterThan(0));
+    expect(partial, lessThan(1));
+    ScrollEndNotification(
+            metrics: metrics,
+            context: pageContext,
+            dragDetails: DragEndDetails(primaryVelocity: 0))
+        .dispatch(pageContext);
     await tester.pumpAndSettle();
     final hidden = tester.widget<AnimatedOpacity>(
-      find.ancestor(
-        of: find.byType(FloatingTabBar),
-        matching: find.byType(AnimatedOpacity),
-      ).first,
+      find
+          .ancestor(
+            of: find.byType(FloatingTabBar),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
     );
     expect(hidden.opacity, 0);
+    ScrollStartNotification(
+      metrics: metrics,
+      context: pageContext,
+      dragDetails: DragStartDetails(globalPosition: Offset.zero),
+    ).dispatch(pageContext);
     ScrollUpdateNotification(
       metrics: metrics,
       context: pageContext,
       scrollDelta: -32,
       dragDetails: DragUpdateDetails(globalPosition: Offset.zero),
     ).dispatch(pageContext);
+    ScrollEndNotification(
+            metrics: metrics,
+            context: pageContext,
+            dragDetails: DragEndDetails(primaryVelocity: 0))
+        .dispatch(pageContext);
     await tester.pumpAndSettle();
     final visible = tester.widget<AnimatedOpacity>(
-      find.ancestor(
-        of: find.byType(FloatingTabBar),
-        matching: find.byType(AnimatedOpacity),
-      ).first,
+      find
+          .ancestor(
+            of: find.byType(FloatingTabBar),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
     );
     expect(visible.opacity, 1);
 

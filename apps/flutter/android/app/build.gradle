@@ -38,8 +38,8 @@ android {
     defaultConfig {
         // Independent fork identity. Keep the namespace above to preserve
         // existing Flutter/Android native class names.
-        applicationId = _diagnosticBuild ? "io.github.ktclat.c001apk.diagnostic.visibility" : "io.github.ktclat.c001apk"
-        manifestPlaceholders.applicationLabel = _diagnosticBuild ? "c001apk 显隐验证" : "c001apk"
+        applicationId = _diagnosticBuild ? "io.github.ktclat.c001apk.diagnostic.motion" : "io.github.ktclat.c001apk"
+        manifestPlaceholders.applicationLabel = _diagnosticBuild ? "c001apk 动效验证" : "c001apk"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode

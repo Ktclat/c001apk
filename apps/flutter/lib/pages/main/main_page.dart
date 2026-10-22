@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../components/floating_tab_bar.dart';
+import '../../components/floating_dock_motion.dart';
 import '../../utils/navigation_diagnostics.dart';
 import '../../utils/floating_navigation_policy.dart';
 import '../../pages/home/return_top_controller.dart';
@@ -28,8 +29,7 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage>
-    with SingleTickerProviderStateMixin {
+class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   final ReturnTopController _pageScrollController =
       Get.put(ReturnTopController(), tag: 'home');
   int _selectedIndex = 0;
@@ -37,9 +37,8 @@ class _MainPageState extends State<MainPage>
   late final MainController _mainController = Get.put(MainController());
   var _contrller = PageController();
   bool _resetting = false;
-  // Scroll toggles this notifier without rebuilding the image-heavy PageView.
-  final ValueNotifier<bool> _dockVisible = ValueNotifier<bool>(true);
-  double _scrollTravel = 0;
+  // Scroll updates only dock motion, not the image-heavy PageView.
+  late final FloatingDockMotion _dockMotion = FloatingDockMotion(vsync: this);
   bool _userScrollActive = false;
   bool _floatingActive = false;
   bool _accessibleNavigation = false;
@@ -62,8 +61,7 @@ class _MainPageState extends State<MainPage>
 
   void _revealDock(String reason) {
     NavigationDiagnostics.instance.reveal(reason);
-    _scrollTravel = 0;
-    _dockVisible.value = true;
+    _dockMotion.reveal();
   }
 
   /// Follow user scrolling, including wheel updates and the ballistic tail of
@@ -80,8 +78,9 @@ class _MainPageState extends State<MainPage>
           userSession: _userScrollActive,
           tickerEnabled: tickerEnabled,
           currentRoute: currentRoute,
-          visible: _dockVisible.value,
-          accumulated: _scrollTravel,
+          visible: _dockMotion.value < 1,
+          accumulated: _dockMotion.signedTravel,
+          progress: _dockMotion.value,
           consumed: consumed);
     }
 
@@ -113,11 +112,21 @@ class _MainPageState extends State<MainPage>
     }
     if (notification is UserScrollNotification &&
         notification.direction != ScrollDirection.idle) {
+      if (!_userScrollActive) _dockMotion.beginUserScroll();
       _userScrollActive = true;
     } else if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
       _userScrollActive = true;
-      _scrollTravel = 0;
+      _dockMotion.beginUserScroll();
+    }
+    // A window/policy reset may occur while a finger remains down. Its next
+    // genuine drag update starts a fresh session; old ballistic/programmatic
+    // updates still cannot inherit the cancelled one.
+    if (notification is ScrollUpdateNotification &&
+        notification.dragDetails != null &&
+        !_userScrollActive) {
+      _dockMotion.beginUserScroll();
+      _userScrollActive = true;
     }
     var decision = 'non_update';
     double? consumed;
@@ -135,24 +144,7 @@ class _MainPageState extends State<MainPage>
           .clamp(metrics.minScrollExtent, metrics.maxScrollExtent);
       final delta = current - previous;
       consumed = delta;
-      decision = delta == 0 ? 'no_consumed_distance' : 'below_threshold';
-      if (delta != 0) {
-        if (_scrollTravel.sign != delta.sign) _scrollTravel = 0;
-        _scrollTravel = (_scrollTravel + delta).clamp(-80.0, 80.0);
-        if (_scrollTravel >= 28 && _dockVisible.value) {
-          _dockVisible.value = false;
-          NavigationDiagnostics.instance.dockVisibilityChanged(false);
-          decision = 'hide_threshold';
-        } else if (_scrollTravel <= -20 && !_dockVisible.value) {
-          _dockVisible.value = true;
-          NavigationDiagnostics.instance.dockVisibilityChanged(true);
-          decision = 'reveal_threshold';
-        } else if (_scrollTravel >= 28) {
-          decision = 'already_hidden';
-        } else if (_scrollTravel <= -20) {
-          decision = 'already_visible';
-        }
-      }
+      decision = _dockMotion.consume(delta);
     }
     if (notification is ScrollUpdateNotification &&
         !_userScrollActive &&
@@ -161,7 +153,10 @@ class _MainPageState extends State<MainPage>
       decision = 'no_user_session';
     }
     record(decision, consumed: consumed);
-    if (notification is ScrollEndNotification) _userScrollActive = false;
+    if (notification is ScrollEndNotification && _userScrollActive) {
+      _dockMotion.endUserScroll();
+      _userScrollActive = false;
+    }
     // Keep RefreshIndicator, nested tabs and other observers connected.
     return false;
   }
@@ -171,14 +166,20 @@ class _MainPageState extends State<MainPage>
     super.initState();
     _mainController.checkLoginInfo();
     AccountStore.changes.addListener(_sessionChanged);
+    _dockMotion.addListener(_recordDockMotion);
+  }
+
+  void _recordDockMotion() {
+    NavigationDiagnostics.instance
+        .dockMotionChanged(_dockMotion.value, _dockMotion.travelExtent);
   }
 
   void _sessionChanged() {
     if (!mounted || _resetting) return;
-    _dockVisible.value = true;
+    _dockMotion.reveal();
     NavigationDiagnostics.instance.reveal('account_session_change');
     _userScrollActive = false;
-    _scrollTravel = 0;
+    _dockMotion.beginUserScroll();
     _pageSwitch.value = 1;
     setState(() => _resetting = true);
     // Unmount old account pages for a complete frame before reusing the
@@ -198,7 +199,7 @@ class _MainPageState extends State<MainPage>
     AccountStore.changes.removeListener(_sessionChanged);
     _pageSettle.dispose();
     _pageSwitch.dispose();
-    _dockVisible.dispose();
+    _dockMotion.dispose();
     _indexSctream.close();
     _contrller.dispose();
     Get.delete<ReturnTopController>(tag: 'home');
@@ -329,12 +330,18 @@ class _MainPageState extends State<MainPage>
                       context, safeWidth - 2 * sideInset);
                   final dockHeight = FloatingTabBar.heightFor(context);
                   final dockBottom = bottomGap + safeBottom;
+                  if (_dockMotion.configure(
+                      extent: dockHeight + dockBottom,
+                      motionDisabled: media.disableAnimations)) {
+                    _userScrollActive = false;
+                  }
                   // Keep scroll content full-bleed behind the floating bar,
                   // but allow every root list to scroll its final item above
                   // the navigation affordance.
                   final scrollClearance =
                       floating ? dockHeight + dockBottom + 16.0 : 0.0;
 
+                  _recordDockMotion();
                   NavigationDiagnostics.instance.rootConfiguration(
                       media, constraints.biggest,
                       floatingSetting: GStorage.floatingTabBar,
@@ -343,7 +350,7 @@ class _MainPageState extends State<MainPage>
                       floatingActive: floating,
                       rail: useRail,
                       selectedRoot: _selectedIndex,
-                      visible: _dockVisible.value);
+                      visible: _dockMotion.value < 1);
                   return Scaffold(
                     body: Stack(
                       children: [
@@ -431,8 +438,8 @@ class _MainPageState extends State<MainPage>
                                   horizontal: sideInset),
                               child: Center(
                                 heightFactor: 1,
-                                child: ValueListenableBuilder<bool>(
-                                  valueListenable: _dockVisible,
+                                child: AnimatedBuilder(
+                                  animation: _dockMotion,
                                   // Keep the actual dock subtree intact while
                                   // animating visibility: avoid feed rebuilds.
                                   child: SizedBox(
@@ -450,26 +457,23 @@ class _MainPageState extends State<MainPage>
                                       ),
                                     ),
                                   ),
-                                  builder: (context, visible, dock) =>
-                                      AnimatedSlide(
-                                    duration: reduceMotion
-                                        ? Duration.zero
-                                        : const Duration(milliseconds: 180),
+                                  builder: (context, dock) => AnimatedSlide(
+                                    duration: Duration.zero,
                                     curve: Curves.easeOutCubic,
-                                    offset: visible
-                                        ? Offset.zero
-                                        : const Offset(0, 1.5),
+                                    offset: Offset(
+                                        0,
+                                        _dockMotion.value *
+                                            _dockMotion.travelExtent /
+                                            dockHeight),
                                     child: AnimatedOpacity(
-                                      duration: reduceMotion
-                                          ? Duration.zero
-                                          : const Duration(milliseconds: 150),
-                                      opacity: visible ? 1 : 0,
+                                      duration: Duration.zero,
+                                      opacity: 1 - _dockMotion.value,
                                       child: IgnorePointer(
-                                        ignoring: !visible,
+                                        ignoring: !_dockMotion.fullyShown,
                                         child: ExcludeSemantics(
-                                          excluding: !visible,
+                                          excluding: !_dockMotion.fullyShown,
                                           child: ExcludeFocus(
-                                            excluding: !visible,
+                                            excluding: !_dockMotion.fullyShown,
                                             child: dock!,
                                           ),
                                         ),
@@ -504,9 +508,9 @@ class _MainPageState extends State<MainPage>
 
   void onDestinationSelected(int index) {
     if (_resetting || !_contrller.hasClients) return;
-    _scrollTravel = 0;
+    _dockMotion.beginUserScroll();
     _userScrollActive = false;
-    _dockVisible.value = true;
+    _dockMotion.reveal();
     NavigationDiagnostics.instance.reveal('root_selection_or_reselect');
     if (index == 0 && _selectedIndex == 0) {
       _pageScrollController.setIndex(998);

@@ -278,7 +278,7 @@ void main() {
     expect(recorder.counts['feed.FEED.pointer.move'], greaterThan(0));
     expect(recorder.counts['feed.FEED.positionChanged'], greaterThan(0));
     expect(recorder.counts['home.vertical.forwarded'], greaterThan(0));
-    expect(recorder.counts['root.vertical.hide_threshold'], greaterThan(0));
+    expect(recorder.counts['root.vertical.hide_progress'], greaterThan(0));
     expect(
         recorder.environment['selectedHomeIndex'], Platform.isAndroid ? 1 : 0);
     expect(recorder.environment['homeTabCount'], Platform.isAndroid ? 6 : 5);
@@ -335,6 +335,318 @@ void main() {
     await tester.pumpAndSettle();
     expect(recorder.environment['selectedRoot'], 2,
         reason: 'Root selection does not depend on a parent rebuild');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'scroll-linked dock motion follows real Home gestures and cancels interrupted settle',
+      (tester) async {
+    tester.view.devicePixelRatio = 3.25;
+    tester.view.physicalSize = const Size(1200, 2670);
+    tester.view.viewPadding = const FakeViewPadding(top: 140);
+    tester.view.padding = const FakeViewPadding(top: 140);
+    tester.view.systemGestureInsets = const FakeViewPadding(top: 179);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(accessibleNavigation: true);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewInsets);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetSystemGestureInsets);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await finishFixtureIo(tester, () async {
+      await GStorage.setFloatingNavigationPolicy(
+          FloatingNavigationPolicy.hideOnScroll);
+      await GStorage.setFloatingTabBar(true);
+    });
+    expect(GStorage.floatingNavigationPolicy,
+        FloatingNavigationPolicy.hideOnScroll);
+    expect(FloatingNavigationPolicy.fromStorage(999),
+        FloatingNavigationPolicy.automatic);
+    final key = GlobalKey();
+    await tester
+        .pumpWidget(RepaintBoundary(key: key, child: const C001APKAPP()));
+    await tester.pumpAndSettle();
+    final feed = Get.find<HomeFeedController>(tag: 'FEED');
+    feed.isEnd = true;
+    feed.loadingState.value = Success(List.generate(
+        60,
+        (i) => Datum.fromJson({
+              ...EmptyGuestAdapter.feed,
+              'id': 1000 + i,
+              'message': 'Synthetic offline policy regression $i'
+            })));
+    await tester.pumpAndSettle();
+    final list = find.descendant(
+        of: find.byWidgetPredicate(
+            (w) => w is HomeFeedPage && w.tabType == TabType.FEED),
+        matching: find.byType(ListView));
+    final dock = find.byType(FloatingTabBar);
+    Finder ancestor(Type type) =>
+        find.ancestor(of: dock, matching: find.byType(type));
+    double opacity() =>
+        tester.widget<AnimatedOpacity>(ancestor(AnimatedOpacity)).opacity;
+    Future<void> capture(String name) =>
+        captureRoot(tester, key, 'build/review/motion/$name.png');
+    final recorder = NavigationDiagnostics.instance;
+    feed.scrollController!.jumpTo(200);
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    final baselineTop = tester.getRect(dock).top;
+    final baselinePadding = tester.widget<ListView>(list).padding;
+    final extent = tester.getSize(dock).height + 12;
+    recorder.start();
+    double progress() =>
+        (recorder.environment['dockProgress'] as num).toDouble();
+    Future<void> frame(String name, {double? consumed}) async {
+      final actualTranslation = tester.getRect(dock).top - baselineTop;
+      expect(actualTranslation, closeTo(progress() * extent, .01));
+      expect(opacity(), closeTo(1 - progress(), .0001));
+      expect(tester.widget<ListView>(list).padding, baselinePadding);
+      debugPrint('MOTION_FRAME ${jsonEncode({
+            'frame': name,
+            'consumedDp': consumed,
+            'progress': progress(),
+            'opacity': opacity(),
+            'translationY': actualTranslation
+          })}');
+      if (progress() > 0) {
+        expect(
+            tester
+                .widget<IgnorePointer>(ancestor(IgnorePointer).first)
+                .ignoring,
+            true);
+        expect(
+            tester
+                .widget<ExcludeSemantics>(ancestor(ExcludeSemantics).first)
+                .excluding,
+            true);
+        expect(
+            tester.widget<ExcludeFocus>(ancestor(ExcludeFocus).first).excluding,
+            true);
+        expect(find.byKey(const ValueKey('floating-tab-hit-我的')).hitTestable(),
+            findsNothing);
+      }
+      await capture(name);
+    }
+
+    await frame('00-shown');
+    var gesture = await tester.startGesture(tester.getCenter(list));
+    await tester.pump();
+    var time = 0;
+    var step = 0;
+    for (final movement in [-24.0, -12.0, -12.0, -12.0, 12.0]) {
+      final beforeOffset = feed.scrollController!.offset;
+      final beforeProgress = progress();
+      time += 40;
+      await gesture.moveBy(Offset(0, movement),
+          timeStamp: Duration(milliseconds: time));
+      await tester.pump(const Duration(milliseconds: 16));
+      final consumed = feed.scrollController!.offset - beforeOffset;
+      expect(progress(),
+          closeTo((beforeProgress + consumed / extent).clamp(0.0, 1.0), .0001));
+      if (consumed != 0) expect(progress(), greaterThan(0));
+      expect(progress(), lessThan(1));
+      await frame('${++step}-scroll-linked', consumed: consumed);
+    }
+    // A stationary pointer sample prevents this deliberate idle-settle case
+    // from being confused with the separate real ballistic regression.
+    await gesture.moveBy(Offset.zero,
+        timeStamp: const Duration(milliseconds: 1000));
+    await gesture.up(timeStamp: const Duration(milliseconds: 1016));
+    await tester.pump();
+    final beforeSettle = progress();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(progress(), lessThan(beforeSettle));
+    expect(progress(), greaterThan(0));
+    await frame('06-idle-settle');
+    final interruptedProgress = progress();
+    gesture = await tester.startGesture(tester.getCenter(list));
+    await tester.pump();
+    final beforeOffset = feed.scrollController!.offset;
+    await gesture.moveBy(const Offset(0, -24),
+        timeStamp: const Duration(milliseconds: 40));
+    await tester.pump();
+    final consumed = feed.scrollController!.offset - beforeOffset;
+    expect(
+        progress(),
+        closeTo(
+            (interruptedProgress + consumed / extent).clamp(0.0, 1.0), .0001));
+    await frame('07-interrupted-by-drag', consumed: consumed);
+    final resumedProgress = progress();
+    final resumedOffset = feed.scrollController!.offset;
+    await gesture.moveBy(const Offset(0, -24),
+        timeStamp: const Duration(milliseconds: 80));
+    await tester.pump();
+    final resumedConsumed = feed.scrollController!.offset - resumedOffset;
+    expect(resumedConsumed, greaterThan(0));
+    expect(
+        progress(), closeTo(resumedProgress + resumedConsumed / extent, .0001));
+    await frame('07b-resumed-consumed-drag', consumed: resumedConsumed);
+    await gesture.moveBy(Offset.zero,
+        timeStamp: const Duration(milliseconds: 1000));
+    await gesture.up(timeStamp: const Duration(milliseconds: 1016));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(progress(), greaterThan(0));
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(
+            accessibleNavigation: true, disableAnimations: true);
+    await tester.pump();
+    expect(opacity(), 1);
+    expect(progress(), 0);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(progress(), 0, reason: 'No orphaned settle ticker after motion-off');
+    await frame('08-motion-off-cancels-settle');
+    await tester.drag(list, const Offset(0, -120));
+    await tester.pump();
+    expect(opacity(), 0);
+    await frame('09-motion-off-instant-hidden');
+    await tester.drag(list, const Offset(0, 120));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(accessibleNavigation: true);
+    await tester.pumpAndSettle();
+    Future<void> startPartialSettle(Finder scrollView) async {
+      final g = await tester.startGesture(tester.getCenter(scrollView));
+      await tester.pump();
+      await g.moveBy(const Offset(0, -24),
+          timeStamp: const Duration(milliseconds: 40));
+      await tester.pump();
+      await g.moveBy(const Offset(0, -35),
+          timeStamp: const Duration(milliseconds: 80));
+      await tester.pump();
+      await g.moveBy(Offset.zero,
+          timeStamp: const Duration(milliseconds: 1000));
+      await g.up(timeStamp: const Duration(milliseconds: 1016));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(progress(), greaterThan(0));
+      expect(progress(), lessThan(1));
+    }
+
+    await startPartialSettle(list);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 900);
+    await tester.pump();
+    expect(dock, findsNothing);
+    expect(progress(), 0);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(progress(), 0);
+    await capture('10-keyboard-cancels-settle');
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    await startPartialSettle(list);
+    tester.view.physicalSize = const Size(2670, 1200);
+    await tester.pump();
+    expect(progress(), 0);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(progress(), 0);
+    expect(opacity(), 1);
+    await capture('11-window-change-cancels-settle');
+    tester.view.physicalSize = const Size(1200, 2670);
+    await tester.pumpAndSettle();
+    await startPartialSettle(list);
+    await tester.tap(find.text('热门'));
+    await tester.pumpAndSettle();
+    expect(progress(), 0);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(progress(), 0);
+    await tester.tap(find.text('动态'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('floating-tab-hit-我的')));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(1200, 1200);
+    await tester.pumpAndSettle();
+    final myList = find.byType(CustomScrollView).first;
+    await startPartialSettle(myList);
+    // A system Back action can change root while the partially departed dock
+    // is correctly non-interactive. This is navigation, not scroll evidence.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(recorder.environment['selectedRoot'], 0);
+    expect(progress(), 0);
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(progress(), 0);
+    await capture('12-system-back-cancels-settle');
+    tester.view.physicalSize = const Size(1200, 2670);
+    await tester.pumpAndSettle();
+    feed.scrollController!.jumpTo(200);
+    await tester.pumpAndSettle();
+    await frame('20-linked-shown');
+    final sequence = await tester.startGesture(tester.getCenter(list));
+    await tester.pump();
+    var sequenceTime = 0;
+    for (var i = 0; i < 6; i++) {
+      sequenceTime += 40;
+      final beforePixels = feed.scrollController!.position.pixels;
+      await sequence.moveBy(Offset(0, i < 2 ? -24 : -20),
+          timeStamp: Duration(milliseconds: sequenceTime));
+      await tester.pump(const Duration(milliseconds: 16));
+      await frame('${21 + i}-linked-hide',
+          consumed: feed.scrollController!.position.pixels - beforePixels);
+    }
+    expect(progress(), 1);
+    expect(
+        tester.getRect(dock).top,
+        greaterThanOrEqualTo(
+            tester.view.physicalSize.height / tester.view.devicePixelRatio -
+                .01));
+    for (var i = 0; i < 3; i++) {
+      sequenceTime += 40;
+      final beforePixels = feed.scrollController!.position.pixels;
+      await sequence.moveBy(const Offset(0, 20),
+          timeStamp: Duration(milliseconds: sequenceTime));
+      await tester.pump(const Duration(milliseconds: 16));
+      await frame('${27 + i}-linked-reveal',
+          consumed: feed.scrollController!.position.pixels - beforePixels);
+    }
+    await sequence.moveBy(Offset.zero,
+        timeStamp: const Duration(milliseconds: 1000));
+    await sequence.up(timeStamp: const Duration(milliseconds: 1016));
+    await tester.pumpAndSettle();
+    expect(progress(), 0);
+    await frame('30-linked-shown-again');
+    feed.scrollController!.jumpTo(200);
+    await tester.pumpAndSettle();
+    final heldDrag = await tester.startGesture(tester.getCenter(list));
+    await tester.pump();
+    await heldDrag.moveBy(const Offset(0, -24),
+        timeStamp: const Duration(milliseconds: 40));
+    await tester.pump();
+    await heldDrag.moveBy(const Offset(0, -24),
+        timeStamp: const Duration(milliseconds: 80));
+    await tester.pump();
+    expect(progress(), greaterThan(0));
+    tester.view.physicalSize = const Size(1239, 2670);
+    await tester.pump();
+    expect(progress(), 0);
+    final heldBefore = feed.scrollController!.position.pixels;
+    await heldDrag.moveBy(const Offset(0, -12),
+        timeStamp: const Duration(milliseconds: 120));
+    await tester.pump();
+    final heldConsumed = feed.scrollController!.position.pixels - heldBefore;
+    expect(heldConsumed, greaterThan(0));
+    expect(progress(), closeTo(heldConsumed / extent, .0001));
+    await capture('31-resized-held-drag-progress');
+    await heldDrag.moveBy(Offset.zero,
+        timeStamp: const Duration(milliseconds: 1000));
+    await heldDrag.up(timeStamp: const Duration(milliseconds: 1016));
+    await tester.pumpAndSettle();
+    debugPrint(
+        'HELD_DRAG_RESIZE consumedDp=$heldConsumed releasedProgress=${progress()}');
+    expect(progress(), 0,
+        reason:
+            'A genuine continued drag after resize must regain a user session and settle on release');
+    await capture('32-resized-held-drag-settled');
+    tester.view.physicalSize = const Size(1200, 2670);
+    await tester.pumpAndSettle();
+    await tester.runAsync(() async {
+      final file = File('build/review/motion/diagnostic-report.json');
+      await file.writeAsString(recorder.report());
+    });
     await tester.pumpWidget(const SizedBox());
   });
 
@@ -422,15 +734,21 @@ void main() {
         timeStamp: const Duration(milliseconds: 32));
     await tester.pump(const Duration(milliseconds: 16));
     expect(feed.scrollController!.offset, lessThan(28));
-    expect(opacity(), 1);
-    await capture('01-explicit-short-touch-visible');
+    final touchOpacity = opacity();
+    expect(touchOpacity, greaterThan(0));
+    expect(touchOpacity, lessThan(1),
+        reason:
+            'Explicit scroll hide follows movement despite accessibility navigation');
+    await capture('01-explicit-short-touch-partial');
     await gesture.up(timeStamp: const Duration(milliseconds: 40));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
     expect(feed.scrollController!.offset, greaterThan(28));
+    expect(opacity(), lessThan(touchOpacity));
+    await capture('02-explicit-ballistic-progress');
+    await tester.pumpAndSettle();
     expect(opacity(), 0,
-        reason:
-            'User-started ballistic distance hides despite accessibility flag only after explicit choice');
+        reason: 'User-started ballistic movement completes the explicit hide');
     expect(tester.widget<AnimatedOpacity>(ancestor(AnimatedOpacity)).duration,
         Duration.zero);
     expect(tester.widget<IgnorePointer>(ancestor(IgnorePointer).first).ignoring,
@@ -446,7 +764,7 @@ void main() {
         findsNothing);
     await tester.pumpAndSettle();
     await capture('02-explicit-ballistic-hidden');
-    expect(recorder.counts['root.vertical.hide_threshold'], greaterThan(0));
+    expect(recorder.counts['root.vertical.hide_progress'], greaterThan(0));
     expect(recorder.counts['feed.FEED.pointer.move'], greaterThan(0));
     expect(recorder.counts['root.vertical.accessible_navigation'], isNull);
     await tester.drag(list, const Offset(0, 100));

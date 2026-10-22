@@ -3,7 +3,7 @@ import re
 import subprocess
 import sys
 
-DIAGNOSTIC_ID = 'io.github.ktclat.c001apk.diagnostic.visibility'
+DIAGNOSTIC_ID = 'io.github.ktclat.c001apk.diagnostic.motion'
 
 
 def application_tree(manifest):
@@ -25,7 +25,7 @@ def application_tree(manifest):
 def validate(badging, manifest, expected_abi=None):
     package = re.search(r"^package: name='([^']+)'", badging, re.M)
     assert package and package.group(1) == DIAGNOSTIC_ID, 'Wrong diagnostic package'
-    assert "application-label:'c001apk 显隐验证'" in badging, 'Missing diagnostic launcher label'
+    assert "application-label:'c001apk 动效验证'" in badging, 'Missing diagnostic launcher label'
     assert re.search(r"versionName='[^']+-diag'", badging), 'Missing diagnostic version suffix'
     assert 'sharedUserId' not in manifest, 'Shared app identity is forbidden'
     if expected_abi is not None:

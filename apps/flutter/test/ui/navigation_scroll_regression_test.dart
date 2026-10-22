@@ -162,6 +162,9 @@ void main() {
 
     expect(opacity(), 1);
     await capture('00-visible');
+    final motionExtent =
+        tester.view.physicalSize.height / tester.view.devicePixelRatio -
+            tester.getRect(find.byType(FloatingTabBar)).top;
     // Real touch events, not constructed ScrollNotifications. The first move
     // crosses touch slop; less than 28dp is consumed before release.
     final gesture = await tester.startGesture(tester.getCenter(list));
@@ -175,18 +178,24 @@ void main() {
         timeStamp: const Duration(milliseconds: 32));
     await tester.pump(const Duration(milliseconds: 16));
     expect(feed.scrollController!.offset, lessThan(28));
-    expect(opacity(), 1);
+    final shortTouchOpacity = opacity();
+    expect(shortTouchOpacity,
+        closeTo(1 - feed.scrollController!.offset / motionExtent, .0001));
+    expect(shortTouchOpacity, greaterThan(0));
+    expect(shortTouchOpacity, lessThan(1));
     await capture('01-short-touch');
     await gesture.up(timeStamp: const Duration(milliseconds: 40));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
     expect(feed.scrollController!.offset, greaterThan(28));
     await capture('02-fling-hide-start');
-    expect(opacity(), 0,
-        reason: 'Ballistic touch movement must count toward hide threshold');
+    expect(opacity(), lessThan(shortTouchOpacity),
+        reason:
+            'Inherited ballistic touch movement must advance hide progress');
     await tester.pump(const Duration(milliseconds: 90));
     await capture('03-fling-hide-mid');
     await tester.pumpAndSettle();
+    expect(opacity(), 0);
     await capture('04-fling-hidden');
     await tester.drag(list, const Offset(0, 100));
     await tester.pumpAndSettle();

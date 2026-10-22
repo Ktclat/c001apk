@@ -50,12 +50,22 @@ jobs:
       - name: Offline regression tests
         run: timeout 900s flutter test --no-pub --reporter expanded
       - name: Standalone diagnostic widget regressions
-        run: timeout 300s flutter test --no-pub --dart-define=APP_DIAGNOSTIC=true test/ui/navigation_adaptive_test.dart --name 'policy|diagnostics' --reporter expanded
+        run: timeout 300s flutter test --no-pub --dart-define=APP_DIAGNOSTIC=true test/ui/navigation_adaptive_test.dart --name 'policy|diagnostics|motion' --reporter expanded
       - name: Upload synthetic typography review
         uses: actions/upload-artifact@v7.0.2
         with:
           name: c001apk-typography-review
           path: apps/flutter/build/review/*.png
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Upload synthetic dock-motion review
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: c001apk-dock-motion-review
+          path: |
+            apps/flutter/build/review/motion/*.png
+            apps/flutter/build/review/motion/*.json
           if-no-files-found: error
           retention-days: 14
 
@@ -143,12 +153,12 @@ jobs:
       - name: Upload standalone diagnostic APK
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: c001apk-android-visibility-profile
+          name: c001apk-android-motion-profile
           path: apps/flutter/build/diagnostic/app-diagnostic-profile.apk
           if-no-files-found: error
           retention-days: 14
 
-      - name: Compile arm64 standalone visibility profile APK
+      - name: Compile arm64 standalone motion profile APK
         env:
           SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           BUILD_RUN: ${{ github.run_number }}
@@ -159,16 +169,16 @@ jobs:
           --dart-define=APP_BUILD_SHA="$(git rev-parse HEAD)"
           --dart-define=APP_SOURCE_SHA="$SOURCE_SHA"
           --dart-define=APP_BUILD_RUN="$BUILD_RUN"
-      - name: Verify arm64 visibility APK before upload
+      - name: Verify arm64 motion APK before upload
         run: |
           python3 tools/verify_apk_identity.py "$ANDROID_HOME/build-tools/34.0.0/aapt" build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk arm64-v8a
           test "$(stat -c%s build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk)" -lt 50000000
-          mkdir -p build/visibility-arm64
-          cp build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk build/visibility-arm64/app-visibility-arm64-profile.apk
-      - name: Upload arm64 standalone visibility APK
+          mkdir -p build/motion-arm64
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk build/motion-arm64/app-motion-arm64-profile.apk
+      - name: Upload arm64 standalone motion APK
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: c001apk-android-visibility-arm64-profile
-          path: apps/flutter/build/visibility-arm64/app-visibility-arm64-profile.apk
+          name: c001apk-android-motion-arm64-profile
+          path: apps/flutter/build/motion-arm64/app-motion-arm64-profile.apk
           if-no-files-found: error
           retention-days: 14
