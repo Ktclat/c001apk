@@ -677,6 +677,12 @@ void main() {
       await tester.pumpAndSettle();
       await tester.drag(list, const Offset(0, -250));
       await tester.pumpAndSettle();
+      // Accessibility navigation does not suppress the default hide behavior;
+      // actual disableAnimations still makes it instantaneous.
+      expect(opacity(), 0);
+      await capture('accessible-navigation-hidden-motion-off');
+      await tester.drag(list, const Offset(0, 120));
+      await tester.pumpAndSettle();
       expect(opacity(), 1);
       expect(
           tester

@@ -2,44 +2,33 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hive/hive.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
-import 'package:c001apk_flutter/utils/floating_navigation_policy.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  test('policy defaults and accessibility suppression matrix', () {
-    for (final invalid in [null, -1, 3, 'hideOnScroll', true]) {
-      expect(FloatingNavigationPolicy.fromStorage(invalid),
-          FloatingNavigationPolicy.automatic);
-    }
-    expect(FloatingNavigationPolicy.automatic.suppressionReason(true),
-        'accessible_navigation');
-    expect(FloatingNavigationPolicy.automatic.suppressionReason(false), isNull);
-    for (final accessible in [false, true]) {
-      expect(
-          FloatingNavigationPolicy.hideOnScroll.suppressionReason(accessible),
-          isNull);
-      expect(
-          FloatingNavigationPolicy.alwaysVisible.suppressionReason(accessible),
-          'policy_always_visible');
-    }
-  });
-  test('policy user choice persists across Hive close and reopen', () async {
+  test('legacy policy values remain inert across settings reopen', () async {
     final directory =
-        await Directory.systemTemp.createTemp('navigation-policy-');
+        await Directory.systemTemp.createTemp('navigation-default-');
     Hive.init(directory.path);
     GStorage.settings = await Hive.openBox('settings');
     try {
-      expect(GStorage.floatingNavigationPolicy,
-          FloatingNavigationPolicy.automatic);
-      await GStorage.setFloatingNavigationPolicy(
-          FloatingNavigationPolicy.hideOnScroll);
-      await GStorage.settings.close();
-      final reopened = await Hive.openBox('settings');
-      expect(
-          FloatingNavigationPolicy.fromStorage(
-              reopened.get(SettingsBoxKey.floatingNavigationPolicy)),
-          FloatingNavigationPolicy.hideOnScroll);
-      await reopened.close();
+      expect(GStorage.floatingTabBar, false);
+      await GStorage.setFloatingTabBar(true);
+      var settings = GStorage.settings;
+      for (final oldValue in [0, 1, 2, 999, 'unknown']) {
+        await settings.put('floatingNavigationPolicy', oldValue);
+        await settings.close();
+        // Production binds its late-final box once per process. Reopen locally
+        // to inspect persisted bytes without illegally rebinding that singleton.
+        settings = await Hive.openBox('settings');
+        expect(settings.get(SettingsBoxKey.floatingTabBar), true);
+        expect(settings.get('floatingNavigationPolicy'), oldValue,
+            reason: 'No destructive preference migration');
+      }
+      await settings.put(SettingsBoxKey.floatingTabBar, false);
+      await settings.close();
+      settings = await Hive.openBox('settings');
+      expect(settings.get(SettingsBoxKey.floatingTabBar), false);
+      expect(settings.get('floatingNavigationPolicy'), 'unknown');
     } finally {
       await Hive.close();
       await directory.delete(recursive: true);

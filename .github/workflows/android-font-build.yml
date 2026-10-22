@@ -66,6 +66,7 @@ jobs:
           path: |
             apps/flutter/build/review/motion/*.png
             apps/flutter/build/review/motion/*.json
+            apps/flutter/build/review/defaults/*.png
           if-no-files-found: error
           retention-days: 14
 

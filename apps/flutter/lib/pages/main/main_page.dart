@@ -13,7 +13,6 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../components/floating_tab_bar.dart';
 import '../../components/floating_dock_motion.dart';
 import '../../utils/navigation_diagnostics.dart';
-import '../../utils/floating_navigation_policy.dart';
 import '../../pages/home/return_top_controller.dart';
 import '../../pages/home/home_page.dart';
 import '../../pages/main/main_controller.dart';
@@ -42,8 +41,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   bool _userScrollActive = false;
   bool _floatingActive = false;
   bool _accessibleNavigation = false;
-  FloatingNavigationPolicy _navigationPolicy =
-      FloatingNavigationPolicy.automatic;
   bool _usingRail = false;
   bool _reducedMotion = false;
   Size? _navigationWindow;
@@ -84,12 +81,8 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
           consumed: consumed);
     }
 
-    final suppression =
-        _navigationPolicy.suppressionReason(_accessibleNavigation);
-    if (!_floatingActive || suppression != null || page != _selectedIndex) {
-      record(!_floatingActive
-          ? 'floating_inactive'
-          : suppression ?? 'inactive_root');
+    if (!_floatingActive || page != _selectedIndex) {
+      record(!_floatingActive ? 'floating_inactive' : 'inactive_root');
       return false;
     }
     if (!tickerEnabled || currentRoute == false) {
@@ -119,7 +112,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
       _userScrollActive = true;
       _dockMotion.beginUserScroll();
     }
-    // A window/policy reset may occur while a finger remains down. Its next
+    // A window/mode reset may occur while a finger remains down. Its next
     // genuine drag update starts a fresh session; old ballistic/programmatic
     // updates still cannot inherit the cancelled one.
     if (notification is ScrollUpdateNotification &&
@@ -274,10 +267,8 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
         onBackPressed();
       },
       child: ValueListenableBuilder(
-        valueListenable: GStorage.settings.listenable(keys: [
-          SettingsBoxKey.floatingTabBar,
-          SettingsBoxKey.floatingNavigationPolicy
-        ]),
+        valueListenable:
+            GStorage.settings.listenable(keys: [SettingsBoxKey.floatingTabBar]),
         builder: (context, _, __) => _resetting
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : LayoutBuilder(
@@ -303,7 +294,6 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                   final floating =
                       !useRail && !keyboardOpen && GStorage.floatingTabBar;
                   final accessible = media.accessibleNavigation;
-                  final policy = GStorage.floatingNavigationPolicy;
                   final reduceMotion = media.disableAnimations || accessible;
                   if (_usingRail != useRail || _reducedMotion != reduceMotion) {
                     _usingRail = useRail;
@@ -313,14 +303,12 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                   // Reset when the dock enters/leaves the layout. This also
                   // prevents rail/IME scrolls from hiding a future portrait dock.
                   if (_floatingActive != floating ||
-                      _accessibleNavigation != accessible ||
-                      _navigationPolicy != policy) {
+                      _accessibleNavigation != accessible) {
                     _userScrollActive = false;
                     _floatingActive = floating;
                     _accessibleNavigation = accessible;
-                    _navigationPolicy = policy;
                     _pageSwitch.value = 1;
-                    _revealDock('mode_accessibility_or_policy_change');
+                    _revealDock('mode_or_accessibility_change');
                   }
                   final safeBottom = math.max(media.viewPadding.bottom,
                       media.systemGestureInsets.bottom);
@@ -345,136 +333,156 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                   NavigationDiagnostics.instance.rootConfiguration(
                       media, constraints.biggest,
                       floatingSetting: GStorage.floatingTabBar,
-                      policy: policy.name,
-                      policySuppression: policy.suppressionReason(accessible),
                       floatingActive: floating,
                       rail: useRail,
                       selectedRoot: _selectedIndex,
                       visible: _dockMotion.value < 1);
                   return Scaffold(
-                    body: Stack(
-                      children: [
-                        Positioned.fill(
-                          child: FloatingNavigationInset(
-                            bottom: scrollClearance,
-                            child: SafeArea(
-                              top: false,
-                              bottom: false,
-                              child: Row(
-                                children: [
-                                  if (useRail)
-                                    StreamBuilder<int>(
-                                      initialData: _selectedIndex,
-                                      stream: _indexSctream.stream,
-                                      builder: (_, snapshot) => NavigationRail(
-                                        destinations: railDestinations,
-                                        selectedIndex: snapshot.data ?? 0,
-                                        onDestinationSelected:
-                                            onDestinationSelected,
-                                      ),
-                                    ),
-                                  Expanded(
-                                    child: AnimatedBuilder(
-                                      animation: _pageSettle,
-                                      // A stable child keeps animation ticks out
-                                      // of the PageView/feed build and layout.
-                                      child: RepaintBoundary(
-                                        child: PageView(
-                                          physics:
-                                              const NeverScrollableScrollPhysics(),
-                                          controller: _contrller,
-                                          children: [
-                                            for (var index = 0;
-                                                index < pages.length;
-                                                index++)
-                                              NotificationListener<
-                                                  ScrollNotification>(
-                                                onNotification:
-                                                    (notification) =>
-                                                        _handleRootScroll(index,
-                                                            notification),
-                                                child: NotificationListener<
-                                                    RootNavigationContentChanged>(
-                                                  onNotification: (_) {
-                                                    if (index ==
-                                                        _selectedIndex) {
-                                                      _userScrollActive = false;
-                                                      _revealDock(
-                                                          'root_content_change');
-                                                    }
-                                                    return false;
-                                                  },
-                                                  child: pages[index],
-                                                ),
-                                              ),
-                                          ],
+                    body: Semantics(
+                      key: const ValueKey('floating-navigation-accessibility'),
+                      container: floating,
+                      explicitChildNodes: floating,
+                      focusable: floating,
+                      label: floating ? '页面导航' : null,
+                      customSemanticsActions: floating
+                          ? {
+                              const CustomSemanticsAction(label: '显示底部导航'): () {
+                                // Ignore an old fling after this explicit reveal.
+                                _userScrollActive = false;
+                                _revealDock('accessibility_reveal');
+                              }
+                            }
+                          : null,
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: FloatingNavigationInset(
+                              bottom: scrollClearance,
+                              child: SafeArea(
+                                top: false,
+                                bottom: false,
+                                child: Row(
+                                  children: [
+                                    if (useRail)
+                                      StreamBuilder<int>(
+                                        initialData: _selectedIndex,
+                                        stream: _indexSctream.stream,
+                                        builder: (_, snapshot) =>
+                                            NavigationRail(
+                                          destinations: railDestinations,
+                                          selectedIndex: snapshot.data ?? 0,
+                                          onDestinationSelected:
+                                              onDestinationSelected,
                                         ),
                                       ),
-                                      builder: (context, child) =>
-                                          Transform.translate(
-                                        key: const ValueKey(
-                                            'root-page-transition'),
-                                        offset: Offset(
-                                            0,
-                                            reduceMotion
-                                                ? 0
-                                                : 4 * (1 - _pageSettle.value)),
-                                        child: child,
+                                    Expanded(
+                                      child: AnimatedBuilder(
+                                        animation: _pageSettle,
+                                        // A stable child keeps animation ticks out
+                                        // of the PageView/feed build and layout.
+                                        child: RepaintBoundary(
+                                          child: PageView(
+                                            physics:
+                                                const NeverScrollableScrollPhysics(),
+                                            controller: _contrller,
+                                            children: [
+                                              for (var index = 0;
+                                                  index < pages.length;
+                                                  index++)
+                                                NotificationListener<
+                                                    ScrollNotification>(
+                                                  onNotification:
+                                                      (notification) =>
+                                                          _handleRootScroll(
+                                                              index,
+                                                              notification),
+                                                  child: NotificationListener<
+                                                      RootNavigationContentChanged>(
+                                                    onNotification: (_) {
+                                                      if (index ==
+                                                          _selectedIndex) {
+                                                        _userScrollActive =
+                                                            false;
+                                                        _revealDock(
+                                                            'root_content_change');
+                                                      }
+                                                      return false;
+                                                    },
+                                                    child: pages[index],
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                        builder: (context, child) =>
+                                            Transform.translate(
+                                          key: const ValueKey(
+                                              'root-page-transition'),
+                                          offset: Offset(
+                                              0,
+                                              reduceMotion
+                                                  ? 0
+                                                  : 4 *
+                                                      (1 - _pageSettle.value)),
+                                          child: child,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                        if (floating)
-                          Positioned(
-                            left: media.viewPadding.left,
-                            right: media.viewPadding.right,
-                            bottom: dockBottom,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: sideInset),
-                              child: Center(
-                                heightFactor: 1,
-                                child: AnimatedBuilder(
-                                  animation: _dockMotion,
-                                  // Keep the actual dock subtree intact while
-                                  // animating visibility: avoid feed rebuilds.
-                                  child: SizedBox(
-                                    width: dockWidth,
-                                    child: StreamBuilder<int>(
-                                      initialData: _selectedIndex,
-                                      stream: _indexSctream.stream,
-                                      builder: (_, snapshot) => FloatingTabBar(
-                                        height: dockHeight,
-                                        dockWidth: dockWidth,
-                                        destinations: barDestinations,
-                                        selectedIndex: snapshot.data ?? 0,
-                                        onDestinationSelected:
-                                            onDestinationSelected,
+                          if (floating)
+                            Positioned(
+                              left: media.viewPadding.left,
+                              right: media.viewPadding.right,
+                              bottom: dockBottom,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: sideInset),
+                                child: Center(
+                                  heightFactor: 1,
+                                  child: AnimatedBuilder(
+                                    animation: _dockMotion,
+                                    // Keep the actual dock subtree intact while
+                                    // animating visibility: avoid feed rebuilds.
+                                    child: SizedBox(
+                                      width: dockWidth,
+                                      child: StreamBuilder<int>(
+                                        initialData: _selectedIndex,
+                                        stream: _indexSctream.stream,
+                                        builder: (_, snapshot) =>
+                                            FloatingTabBar(
+                                          height: dockHeight,
+                                          dockWidth: dockWidth,
+                                          destinations: barDestinations,
+                                          selectedIndex: snapshot.data ?? 0,
+                                          onDestinationSelected:
+                                              onDestinationSelected,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  builder: (context, dock) => AnimatedSlide(
-                                    duration: Duration.zero,
-                                    curve: Curves.easeOutCubic,
-                                    offset: Offset(
-                                        0,
-                                        _dockMotion.value *
-                                            _dockMotion.travelExtent /
-                                            dockHeight),
-                                    child: AnimatedOpacity(
+                                    builder: (context, dock) => AnimatedSlide(
                                       duration: Duration.zero,
-                                      opacity: 1 - _dockMotion.value,
-                                      child: IgnorePointer(
-                                        ignoring: !_dockMotion.fullyShown,
-                                        child: ExcludeSemantics(
-                                          excluding: !_dockMotion.fullyShown,
-                                          child: ExcludeFocus(
+                                      curve: Curves.easeOutCubic,
+                                      offset: Offset(
+                                          0,
+                                          _dockMotion.value *
+                                              _dockMotion.travelExtent /
+                                              dockHeight),
+                                      child: AnimatedOpacity(
+                                        duration: Duration.zero,
+                                        opacity: 1 - _dockMotion.value,
+                                        child: IgnorePointer(
+                                          ignoring: !_dockMotion.fullyShown,
+                                          child: ExcludeSemantics(
                                             excluding: !_dockMotion.fullyShown,
-                                            child: dock!,
+                                            child: ExcludeFocus(
+                                              excluding:
+                                                  !_dockMotion.fullyShown,
+                                              child: dock!,
+                                            ),
                                           ),
                                         ),
                                       ),
@@ -483,8 +491,8 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                                 ),
                               ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                     bottomNavigationBar: !useRail && !keyboardOpen && !floating
                         ? StreamBuilder<int>(

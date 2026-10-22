@@ -19,7 +19,7 @@ class _NavigationDiagnosticsPageState extends State<NavigationDiagnosticsPage> {
           const SizedBox(height: 12),
           if (NavigationBuildIdentity.diagnostic)
             const Text(
-                '这是独立动效验证版，不读取原应用、旧诊断版或显隐验证版的设置或账号。请先在「设置 → 外观与字体」开启悬浮 Tab 导航，并按需选择「悬浮导航隐藏方式」。默认自动模式尊重无障碍需求；无需登录，不要关闭需要的无障碍功能。'),
+                '这是独立动效验证版，不读取原应用、旧诊断版或显隐验证版的设置或账号。请先在「设置 → 外观与字体」开启悬浮 Tab 导航，启用后默认随滚动下移淡出，无需另选隐藏方式；无需登录，不要关闭需要的无障碍功能。'),
           const Text('仅在本机内存记录最近 60 个滚动信号，不含账号、内容或设备标识，不会自动上传。不写入磁盘，进程结束后清除。'),
           const SizedBox(height: 8),
           const Text(

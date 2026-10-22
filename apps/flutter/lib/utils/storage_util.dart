@@ -15,7 +15,6 @@ import '../utils/device_util.dart';
 import '../utils/global_data.dart';
 import '../utils/token_util.dart';
 import 'storage_path.dart';
-import 'floating_navigation_policy.dart';
 import 'app_theme.dart';
 import 'reading_preset.dart';
 import 'device_profile.dart';
@@ -354,13 +353,8 @@ class GStorage {
   static Future<void> setFloatingTabBar(bool enabled) =>
       settings.put(SettingsBoxKey.floatingTabBar, enabled);
 
-  static FloatingNavigationPolicy get floatingNavigationPolicy =>
-      FloatingNavigationPolicy.fromStorage(
-          settings.get(SettingsBoxKey.floatingNavigationPolicy));
-
-  static Future<void> setFloatingNavigationPolicy(
-          FloatingNavigationPolicy value) =>
-      settings.put(SettingsBoxKey.floatingNavigationPolicy, value.storageValue);
+  // Older builds stored floatingNavigationPolicy. It is intentionally ignored:
+  // floating navigation now has one scroll-linked behavior for every install.
 
   static double get fontScale {
     return settings.get(SettingsBoxKey.fontScale, defaultValue: 1.0);
@@ -614,7 +608,6 @@ class SettingsBoxKey {
       fontChoice = 'fontChoice',
       readingPreset = 'readingPreset',
       floatingTabBar = 'floatingTabBar',
-      floatingNavigationPolicy = 'floatingNavigationPolicy',
       typographyV2 = 'typographyV2Migrated',
       followType = 'followType',
       imageQuality = 'imageQuality',

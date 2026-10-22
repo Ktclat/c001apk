@@ -11,11 +11,11 @@ CI75 combined `accessibleNavigation || disableAnimations` for dock animation.
 The reported phone had the former enabled and the latter disabled. This revision
 separates navigation accessibility from motion preference:
 
-- **自动（兼顾无障碍）** remains the safe default and keeps the dock shown when
-  the framework reports accessible navigation. It does not identify which service
-  is active, and nothing changes the operating system's accessibility settings.
-- **滚动时隐藏** is the user's explicit app-level choice. When motion is allowed,
-  consumed vertical scroll distance continuously controls progress from 0 to 1.
+- When **悬浮 Tab 导航** is enabled, scroll hiding is the built-in behavior,
+  including when the framework reports accessible navigation. There is no separate
+  visibility-policy selector. Legacy Auto/AlwaysVisible preferences are ignored.
+  No operating-system accessibility setting is changed.
+- Consumed vertical scroll distance continuously controls progress from 0 to 1.
   Translation is `progress × (dock height + bottom safe gap)` and opacity is
   `1 − progress`. Reverse scrolling reverses both immediately.
 - The existing actual user-session, active-root/Home-tab, horizontal-carousel,
@@ -60,8 +60,8 @@ The new standalone test package is `io.github.ktclat.c001apk.diagnostic.motion`,
 launcher **c001apk 动效验证**, independent of the original app, CI74 diagnostic
 app and CI75 visibility app. Existing data is not read, migrated, overwritten or
 removed. No uninstall is required. The normal package remains unchanged.
-Fresh settings are independent: choose floating navigation and the explicit hide
-policy again. No persistent signing key is created. Both normal and standalone
+Fresh settings are independent: enable floating navigation; scroll hiding then
+works by default without another policy choice. No persistent signing key is created. Both normal and standalone
 builds contain the source change; the official arm64 split build is retained.
 Merged-manifest identity, authority isolation and no external-link interception
 must be verified on the actual new APK before delivery. APK size alone does not
@@ -82,14 +82,15 @@ hide/reveal, first-move touch slop, a consumed move after settle interruption,
 real touch ballistic continuation, runtime motion-off, keyboard/window/Home-tab
 changes, a held drag continuing after a resize, and system Back from a scrolling
 My root. A continued genuine drag reestablishes its cancelled session so release
-still settles; old ballistic/programmatic updates do not. Auto/AlwaysVisible protection,
-policy persistence, hidden hit/focus/semantics and existing adaptive regressions
+still settles; old ballistic/programmatic updates do not. Legacy preference compatibility,
+accessible on-demand reveal, hidden hit/focus/semantics and existing adaptive regressions
 remain covered by the surrounding tests.
 
 Raw PNGs and the synthetic diagnostic report are generated under
 `apps/flutter/build/review/motion`; CI uploads them as `c001apk-dock-motion-review`.
 These are real Flutter widget-engine renders with synthetic offline feed data,
 not screenshots or frame-performance measurements from the user's phone. The
-new motion still requires physical-device confirmation. The Linux widget harness
+user confirmed CI76 motion is smooth on their phone; the subsequent default-setting
+and semantic-action revision still has framework-level validation only. The Linux widget harness
 does not exercise the Android-only Apps tab or native accessibility bridge. No
 merge acceptance is implied by source, widget or artifact checks.

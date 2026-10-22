@@ -15,7 +15,6 @@ import '../../logic/accounts/account_store.dart';
 import '../../components/settings/drop_down_menu_item.dart';
 import '../../components/settings/item_title.dart';
 import '../../components/settings/font_choice_tile.dart';
-import '../../components/settings/floating_navigation_policy_tile.dart';
 import '../../components/settings/reading_preset_tile.dart';
 import '../../components/settings/switch_item.dart';
 import '../../constants/constants.dart';
@@ -193,11 +192,10 @@ class _SettingsDetailPageState extends State<SettingsDetailPage> {
             const SwitchItem(
               icon: Icons.layers_outlined,
               title: '悬浮 Tab 导航',
-              subtitle: '浮在内容上方，按下方所选方式响应滚动；键盘时隐藏',
+              subtitle: '向后浏览时下移淡出，反向滚动显示；键盘弹出时隐藏',
               boxKey: SettingsBoxKey.floatingTabBar,
               defaultValue: false,
             ),
-            const FloatingNavigationPolicyTile(),
             const FontChoiceTile(),
             const ReadingPresetTile(),
             ListTile(

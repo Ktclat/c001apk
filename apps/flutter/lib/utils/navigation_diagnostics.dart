@@ -53,8 +53,6 @@ class NavigationDiagnostics {
     MediaQueryData media,
     Size window, {
     required bool floatingSetting,
-    required String policy,
-    required String? policySuppression,
     required bool floatingActive,
     required bool rail,
     required int selectedRoot,
@@ -73,8 +71,10 @@ class NavigationDiagnostics {
       'accessibleNavigation': media.accessibleNavigation,
       'disableAnimations': media.disableAnimations,
       'floatingSetting': floatingSetting,
-      'floatingNavigationPolicy': policy,
-      'policySuppressionReason': policySuppression,
+      // Compatibility field: effective behavior, no longer a selectable policy.
+      'floatingNavigationPolicy': 'hideOnScroll',
+      'floatingNavigationBehavior': 'scrollLinkedDefault',
+      'policySuppressionReason': null,
       'floatingActive': floatingActive,
       'classicRail': rail,
       'selectedRoot': selectedRoot,

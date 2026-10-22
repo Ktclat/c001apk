@@ -1,3 +1,5 @@
+> Historical CI75 policy review. Superseded by the user-requested single default behavior in `flutter-default-scroll-hide.md`; the selector described below no longer exists.
+
 # Explicit floating-navigation visibility policy
 
 A real CI74 Home → 动态 diagnostic trace established that feed pointers and

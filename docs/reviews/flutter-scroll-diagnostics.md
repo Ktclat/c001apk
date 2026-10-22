@@ -7,17 +7,16 @@ widget tests used offline synthetic feed data on Linux, not the user's phone.
 ## Confirmed implementation differences
 
 - `悬浮 Tab 导航` defaults to off. Classic navigation does not auto-hide.
-- With floating mode enabled, increasing list offset by 28 logical pixels hides
-  the dock. This normally means pushing the finger upward to browse later posts.
+- With floating mode enabled, consumed list movement directly moves/fades
+  the dock;28 logical pixels establishes hide intent for idle settling. This normally means pushing the finger upward to browse later posts.
   Moving back by 20 logical pixels reveals it; reaching the top reveals it.
   The old settings wording “下滑收起、上滑出现” was ambiguous about finger direction
   and is replaced with an explicit description.
-- `MediaQuery.accessibleNavigation` intentionally keeps navigation visible in the
-  default Automatic policy. An explicit app-only scrolling-hide choice can override
-  this visibility guard; see `flutter-navigation-policy.md`.
-  `disableAnimations` alone does not disable hiding. A user's accessibility
-  configuration cannot be inferred from this code or from a generic enabled
-  accessibility service. Do not ask users to disable needed accessibility.
+- Enabled floating navigation always scroll-hides by default. `accessibleNavigation`
+  is recorded but is not a blanket visibility guard. `disableAnimations` still
+  controls actual motion. Legacy visibility-policy values are ignored, not deleted.
+  The compatibility report field `floatingNavigationPolicy` is always `hideOnScroll`,
+  not a selectable setting. Never ask users to disable needed accessibility.
 - Only the selected root and selected Home tab may control the dock. Non-current
   routes and disabled ticker subtrees are ignored. Horizontal carousels,
   programmatic updates without a user session, and unconsumed overscroll cannot
