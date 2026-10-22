@@ -7,6 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../pages/home/app/app_list_page.dart';
+import '../../utils/navigation_diagnostics.dart';
+import '../settings/navigation_diagnostics_page.dart';
 import '../../pages/home/feed/home_feed_page.dart';
 import '../../pages/home/return_top_controller.dart';
 import '../../pages/home/topic/home_topic_page.dart';
@@ -82,7 +84,8 @@ class _HomePageState extends State<HomePage>
       vsync: this,
       initialIndex: _tabTypes.indexOf(TabType.FEED),
       length: _tabTypes.length,
-    );
+    )..addListener(_recordHomeSelection);
+    _recordHomeSelection();
 
     _returnTopSubscription = _pageScrollController.index.listen((index) {
       if (index == 998) {
@@ -91,9 +94,15 @@ class _HomePageState extends State<HomePage>
     });
   }
 
+  void _recordHomeSelection() {
+    NavigationDiagnostics.instance.homeSelection(_tabController.index,
+        _tabTypes[_tabController.index].name, _tabTypes.length);
+  }
+
   @override
   void dispose() {
     _returnTopSubscription?.cancel();
+    _tabController.removeListener(_recordHomeSelection);
     _tabController.dispose();
     super.dispose();
   }
@@ -101,9 +110,14 @@ class _HomePageState extends State<HomePage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    NavigationDiagnostics.instance.homeSelection(_tabController.index,
+        _tabTypes[_tabController.index].name, _tabTypes.length);
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
+        leading: NavigationBuildIdentity.diagnostic
+            ? const Center(child: Text('验证'))
+            : null,
         title: TabBar(
           controller: _tabController,
           tabs: _tabTypes.map((type) => Tab(text: type.label)).toList(),
@@ -115,6 +129,14 @@ class _HomePageState extends State<HomePage>
           },
         ),
         actions: [
+          if (NavigationBuildIdentity.diagnostic)
+            IconButton(
+              icon: const Icon(Icons.bug_report_outlined),
+              tooltip: '悬浮导航诊断',
+              onPressed: () => Navigator.of(context).push(
+                  MaterialPageRoute<void>(
+                      builder: (_) => const NavigationDiagnosticsPage())),
+            ),
           IconButton(
             onPressed: () => Get.toNamed('/search'),
             icon: const Icon(Icons.search),
@@ -122,7 +144,20 @@ class _HomePageState extends State<HomePage>
           )
         ],
       ),
-      body: TabBarView(controller: _tabController, children: _pages),
+      body: TabBarView(controller: _tabController, children: [
+        for (var index = 0; index < _pages.length; index++)
+          NotificationListener<ScrollNotification>(
+            // Kept-alive tabs may finish a fling or reset their position after
+            // selection changes. Only the selected tab controls root chrome.
+            // RefreshIndicator and observers inside each tab still see events.
+            onNotification: (notification) {
+              NavigationDiagnostics.instance.homeNotification(notification,
+                  index, _tabController.index, _tabTypes[index].name);
+              return index != _tabController.index;
+            },
+            child: _pages[index],
+          ),
+      ]),
     );
   }
 }

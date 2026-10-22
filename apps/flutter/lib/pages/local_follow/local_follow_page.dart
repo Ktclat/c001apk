@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../components/common_body.dart';
+import '../../components/floating_tab_bar.dart';
 import '../../components/network_image.dart';
 import '../../logic/local_follow/local_follow_store.dart';
 import '../../utils/global_data.dart';
@@ -49,7 +50,10 @@ class _FollowFeedPageState extends State<FollowFeedPage>
   FollowFeedSelection _selection = FollowFeedSelection.load();
 
   Future<void> _select(FollowFeedSelection selection) async {
-    if (selection != _selection) setState(() => _selection = selection);
+    if (selection != _selection) {
+      const RootNavigationContentChanged().dispatch(context);
+      setState(() => _selection = selection);
+    }
     try {
       await GStorage.settings
           .put(FollowFeedSelection.storageKey, selection.value);
@@ -150,8 +154,7 @@ class _LocalFollowFeedViewState extends State<LocalFollowFeedView> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) => Column(children: [
+  Widget _header() => Column(mainAxisSize: MainAxisSize.min, children: [
         ListTile(
           dense: true,
           title: Text('$localFollowLabel动态'),
@@ -173,23 +176,30 @@ class _LocalFollowFeedViewState extends State<LocalFollowFeedView> {
                     },
                     child: const Text('重试')),
               )),
-        Expanded(
-            child: ValueListenableBuilder(
-          valueListenable:
-              GStorage.settings.listenable(keys: [LocalFollowStore.usersKey]),
-          builder: (context, _, __) => LocalFollowStore().users.isEmpty
-              ? Center(
-                  child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(
-                      GlobalData().isLogin
-                          ? '还没有悄悄关注的用户\n在设置中开启后，长按用户主页的关注按钮即可添加'
-                          : '还没有本地关注的用户\n在用户主页点击“本地关注”，即可在这里查看动态',
-                      textAlign: TextAlign.center),
-                ))
-              : commonBody(_controller),
-        )),
       ]);
+
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder(
+        valueListenable:
+            GStorage.settings.listenable(keys: [LocalFollowStore.usersKey]),
+        builder: (context, _, __) => LocalFollowStore().users.isEmpty
+            ? ListView(
+                padding: EdgeInsets.only(
+                    bottom: FloatingNavigationInset.scrollPaddingOf(context)),
+                children: [
+                  _header(),
+                  Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        GlobalData().isLogin
+                            ? '还没有悄悄关注的用户\n在设置中开启后，长按用户主页的关注按钮即可添加'
+                            : '还没有本地关注的用户\n在用户主页点击“本地关注”，即可在这里查看动态',
+                        textAlign: TextAlign.center,
+                      )),
+                ],
+              )
+            : commonBody(_controller, leading: _header()),
+      );
 }
 
 class LocalFollowListPage extends StatelessWidget {

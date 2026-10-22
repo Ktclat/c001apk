@@ -18,6 +18,9 @@ def _keyAlias = System.getenv("KEY_ALIAS") ?: keystoreProperties["keyAlias"]
 def _keyPassword = System.getenv("KEY_PASSWORD") ?: System.getenv("REVIA_KS_PASS") ?: keystoreProperties["keyPassword"]
 def _hasReleaseSigning = _storeFile != null && _storeFile.isFile() && _storePassword && _keyAlias && _keyPassword
 
+// Opt-in standalone test app. No key generation or access to production data.
+def _diagnosticBuild = providers.gradleProperty('diagnosticBuild').orNull == 'true'
+
 android {
     namespace = "app.awavenue.c001apk"
     compileSdk = 34
@@ -35,11 +38,16 @@ android {
     defaultConfig {
         // Independent fork identity. Keep the namespace above to preserve
         // existing Flutter/Android native class names.
-        applicationId = "io.github.ktclat.c001apk"
+        applicationId = _diagnosticBuild ? "io.github.ktclat.c001apk.diagnostic.motion" : "io.github.ktclat.c001apk"
+        manifestPlaceholders.applicationLabel = _diagnosticBuild ? "c001apk 动效验证" : "c001apk"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
-        versionName = flutter.versionName
+        versionName = flutter.versionName + (_diagnosticBuild ? "-diag" : "")
+    }
+
+    if (_diagnosticBuild) {
+        sourceSets.main.manifest.srcFile 'src/diagnostic/AndroidManifest.xml'
     }
 
     signingConfigs {

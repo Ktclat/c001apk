@@ -46,12 +46,38 @@ Widget commonBody(
         child: body,
       );
     }
-    if (leading == null) return Center(child: body);
-    // Keep system messages reachable even if private messages fail or are empty.
-    return Column(children: [
-      Padding(padding: const EdgeInsets.all(10), child: leading),
-      Expanded(child: Center(child: body)),
-    ]);
+    if (leading == null) {
+      // Center short states in the usable area, not behind the overlay. Larger
+      // errors remain scrollable so their retry target can always be reached.
+      return LayoutBuilder(builder: (context, constraints) {
+        final clearance = FloatingNavigationInset.scrollPaddingOf(context);
+        final usableHeight =
+            constraints.hasBoundedHeight && constraints.maxHeight > clearance
+                ? constraints.maxHeight - clearance
+                : 0.0;
+        return SingleChildScrollView(
+          padding: EdgeInsets.only(bottom: clearance),
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minHeight: usableHeight),
+            child: Center(child: body),
+          ),
+        );
+      });
+    }
+    // Headers must scroll with empty/error/loading content too, especially in
+    // short windows with large text. A fixed leading Column can consume the
+    // entire usable viewport above the floating navigation.
+    return Builder(
+        builder: (context) => ListView(
+              padding: EdgeInsets.fromLTRB(10, 10, 10,
+                  10 + FloatingNavigationInset.scrollPaddingOf(context)),
+              children: [
+                leading,
+                Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 48),
+                    child: body)
+              ],
+            ));
   });
 }
 
@@ -103,8 +129,7 @@ Widget buildBody(
               top: isReply2Reply ? 0 : 10,
               right: isReply2Reply ? 0 : 10,
               bottom: (isReply2Reply ? 0 : 10) +
-                  MediaQuery.paddingOf(context).bottom +
-                  FloatingNavigationInset.of(context)),
+                  FloatingNavigationInset.scrollPaddingOf(context)),
           itemCount: dataList.length + 1 + (leading == null ? 0 : 1),
           itemBuilder: (_, index) {
             if (leading != null) {

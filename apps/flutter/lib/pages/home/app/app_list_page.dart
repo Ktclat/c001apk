@@ -115,13 +115,13 @@ class _AppListPageState extends State<AppListPage>
                       tooltip: '更新',
                       child: const Icon(Icons.update),
                     ),
-                ),
+                  ),
                 )
               : null,
           body: ListView.builder(
             controller: _scrollController,
             padding: EdgeInsets.only(
-                bottom: FloatingNavigationInset.of(context)),
+                bottom: FloatingNavigationInset.scrollPaddingOf(context)),
             physics: const AlwaysScrollableScrollPhysics(
               parent: BouncingScrollPhysics(),
             ),

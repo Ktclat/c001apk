@@ -210,6 +210,8 @@ void main() {
 
   tearDown(() async {
     Get.reset();
+    // A failed assertion must not leak floating mode into later tests.
+    await GStorage.setFloatingTabBar(false);
   });
   tearDownAll(() async {
     await Hive.close();
@@ -289,8 +291,12 @@ void main() {
       (tester) async {
     tester.view.physicalSize = const Size(390, 850);
     tester.view.devicePixelRatio = 1;
+    // Simulate a gesture-navigation device. Screenshot defects were visible
+    // specifically with a bottom system inset on a tall phone.
+    tester.view.viewPadding = const FakeViewPadding(bottom: 24);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetViewPadding);
     await tester.runAsync(
         () => GStorage.setFloatingTabBar(false));
     await tester.pumpWidget(const C001APKAPP());
@@ -308,6 +314,8 @@ void main() {
     final floatingRect = tester.getRect(find.byType(FloatingTabBar));
     expect(floatingRect.width, lessThanOrEqualTo(280));
     expect(floatingRect.height, lessThanOrEqualTo(72));
+    expect(floatingRect.bottom, lessThanOrEqualTo(850 - 24 - 8),
+        reason: 'Dock must clear the Android gesture navigation inset');
     expect((floatingRect.center.dx - 195).abs(), lessThan(1));
     expect(floatingRect.left, greaterThan(30));
     expect(floatingRect.right, lessThan(360));
@@ -325,8 +333,10 @@ void main() {
     expect(tester.widget<FloatingTabBar>(find.byType(FloatingTabBar))
         .selectedIndex, 1);
 
-    // A deliberate scroll down hides the dock and an upward scroll restores it.
-    final pageContext = tester.element(find.byType(PageView).first);
+    // Low-level notification lifecycle coverage, not physical-gesture proof.
+    // Actual Home touch/ballistic behavior is tested separately.
+    // Dispatch from the selected root page, not the PageView itself.
+    final pageContext = tester.element(find.byType(FollowFeedPage));
     final metrics = FixedScrollMetrics(
       minScrollExtent: 0,
       maxScrollExtent: 1000,
@@ -335,32 +345,67 @@ void main() {
       axisDirection: AxisDirection.down,
       devicePixelRatio: 1,
     );
+    ScrollStartNotification(
+      metrics: metrics,
+      context: pageContext,
+      dragDetails: DragStartDetails(globalPosition: Offset.zero),
+    ).dispatch(pageContext);
     ScrollUpdateNotification(
       metrics: metrics,
       context: pageContext,
       scrollDelta: 36,
       dragDetails: DragUpdateDetails(globalPosition: Offset.zero),
     ).dispatch(pageContext);
+    await tester.pump();
+    final partial = tester
+        .widget<AnimatedOpacity>(find
+            .ancestor(
+              of: find.byType(FloatingTabBar),
+              matching: find.byType(AnimatedOpacity),
+            )
+            .first)
+        .opacity;
+    expect(partial, greaterThan(0));
+    expect(partial, lessThan(1));
+    ScrollEndNotification(
+            metrics: metrics,
+            context: pageContext,
+            dragDetails: DragEndDetails(primaryVelocity: 0))
+        .dispatch(pageContext);
     await tester.pumpAndSettle();
     final hidden = tester.widget<AnimatedOpacity>(
-      find.ancestor(
-        of: find.byType(FloatingTabBar),
-        matching: find.byType(AnimatedOpacity),
-      ).first,
+      find
+          .ancestor(
+            of: find.byType(FloatingTabBar),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
     );
     expect(hidden.opacity, 0);
+    ScrollStartNotification(
+      metrics: metrics,
+      context: pageContext,
+      dragDetails: DragStartDetails(globalPosition: Offset.zero),
+    ).dispatch(pageContext);
     ScrollUpdateNotification(
       metrics: metrics,
       context: pageContext,
       scrollDelta: -32,
       dragDetails: DragUpdateDetails(globalPosition: Offset.zero),
     ).dispatch(pageContext);
+    ScrollEndNotification(
+            metrics: metrics,
+            context: pageContext,
+            dragDetails: DragEndDetails(primaryVelocity: 0))
+        .dispatch(pageContext);
     await tester.pumpAndSettle();
     final visible = tester.widget<AnimatedOpacity>(
-      find.ancestor(
-        of: find.byType(FloatingTabBar),
-        matching: find.byType(AnimatedOpacity),
-      ).first,
+      find
+          .ancestor(
+            of: find.byType(FloatingTabBar),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
     );
     expect(visible.opacity, 1);
 
@@ -385,18 +430,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FloatingTabBar), findsOneWidget);
 
-    // Large portrait tablets also use the rail rather than a huge dock.
+    // Explicit floating mode remains a compact overlay in wide windows too.
     tester.view.physicalSize = const Size(900, 1200);
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.byType(FloatingTabBar), findsNothing);
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.byType(FloatingTabBar), findsOneWidget);
+    expect(tester.getSize(find.byType(FloatingTabBar)).width,
+        lessThanOrEqualTo(268));
 
-    // Tablets/landscape retain the original NavigationRail.
     tester.view.physicalSize = const Size(1200, 800);
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(FloatingTabBar), findsNothing);
-    expect(find.byType(NavigationRail), findsOneWidget);
-    expect(tester.widget<NavigationRail>(find.byType(NavigationRail))
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.byType(FloatingTabBar), findsOneWidget);
+    expect(tester.widget<FloatingTabBar>(find.byType(FloatingTabBar))
         .selectedIndex, 1);
 
     tester.view.physicalSize = const Size(390, 850);

@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../logic/app_update/update_preferences.dart';
 import '../logic/app_update/update_service.dart';
 import '../utils/storage_util.dart';
+import '../utils/navigation_diagnostics.dart';
 import 'update_dialog.dart';
 
 class AppUpdates {
@@ -37,6 +38,14 @@ class AppUpdates {
 
   static Future<void> check(BuildContext context,
       {bool automatic = false, UpdateService? updateService}) async {
+    if (NavigationBuildIdentity.diagnostic) {
+      // A side-by-side diagnostic app must not offer a production-package update.
+      if (!automatic && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('独立诊断版不检查正式更新，也不会替换原应用')));
+      }
+      return;
+    }
     final pending = _active;
     if (pending != null) {
       if (automatic) return;
