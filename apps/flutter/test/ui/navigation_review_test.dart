@@ -124,11 +124,96 @@ void main() {
       await tester
           .pumpWidget(RepaintBoundary(key: key, child: const C001APKAPP()));
       await tester.pumpAndSettle();
+      final frameGeometry = <String, List<Rect>>{};
+      List<int>? pressBaseline;
       Future<void> capture(String name) async {
+        final bar = find.byType(FloatingTabBar);
+        if (bar.evaluate().isNotEmpty) {
+          for (final label in ['主页', '关注', '我的']) {
+            final text = find.descendant(of: bar, matching: find.text(label));
+            expect(text, findsOneWidget);
+            final paragraph =
+                find.descendant(of: text, matching: find.byType(RichText));
+            expect(
+                tester
+                    .renderObject<RenderParagraph>(paragraph)
+                    .didExceedMaxLines,
+                isFalse);
+          }
+        }
+        if (name.startsWith('switch-')) {
+          final rects = <Rect>[tester.getRect(bar)];
+          for (final label in ['主页', '关注', '我的']) {
+            final hit = find.byKey(ValueKey('floating-tab-hit-$label'));
+            final icon = find.descendant(of: hit, matching: find.byType(Icon));
+            final text = find.descendant(of: hit, matching: find.text(label));
+            expect(tester.getRect(icon).bottom,
+                lessThanOrEqualTo(tester.getRect(text).top));
+            expect(tester.getRect(icon).center.dx,
+                closeTo(tester.getRect(text).center.dx, 0.01));
+            rects.addAll([
+              tester.getRect(hit),
+              tester.getRect(icon),
+              tester.getRect(text)
+            ]);
+          }
+          final series = name.substring(0, name.lastIndexOf('-'));
+          if (frameGeometry.containsKey(series)) {
+            expect(rects, frameGeometry[series]);
+          }
+          frameGeometry[series] = rects;
+          final selected = [
+            '主页',
+            '关注',
+            '我的'
+          ][tester.widget<FloatingTabBar>(bar).selectedIndex];
+          final transform = tester
+              .widget<Transform>(
+                  find.byKey(ValueKey('floating-tab-indicator-$selected')))
+              .transform;
+          debugPrint(
+              '$name jellyScaleX=${transform.storage[0]} jellyScaleY=${transform.storage[5]}');
+          final painted = tester.getRect(
+              find.byKey(ValueKey('floating-tab-indicator-paint-$selected')));
+          expect(tester.getRect(bar).contains(painted.topLeft), isTrue);
+          expect(tester.getRect(bar).contains(painted.bottomRight), isTrue);
+          if (name.endsWith('-0ms') || name.endsWith('-240ms')) {
+            expect(transform.storage[0], closeTo(1, 0.0001));
+            expect(transform.storage[5], closeTo(1, 0.0001));
+          }
+        }
         final boundary =
             key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
         await tester.runAsync(() async {
           final image = await boundary.toImage(pixelRatio: 2);
+          if (name.startsWith('pressed-')) {
+            final raw =
+                (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
+            final rect = tester.getRect(find.byType(FloatingTabBar));
+            final pixels = <int>[];
+            for (var y = (rect.top * 2).ceil();
+                y < (rect.bottom * 2).floor();
+                y++) {
+              for (var x = (rect.left * 2).ceil();
+                  x < (rect.right * 2).floor();
+                  x++) {
+                for (var c = 0; c < 3; c++) {
+                  pixels.add(raw.getUint8((y * image.width + x) * 4 + c));
+                }
+              }
+            }
+            if (name == 'pressed-baseline-home') {
+              pressBaseline = pixels;
+            } else {
+              final changed = List.generate(pixels.length, (i) => i)
+                  .where((i) => (pixels[i] - pressBaseline![i]).abs() > 3)
+                  .length;
+              expect(changed, greaterThan(60),
+                  reason:
+                      'Held same-tab press must visibly change dock pixels without jelly');
+              debugPrint('$name changedColorChannels=$changed');
+            }
+          }
           if (name.startsWith('switch-')) {
             final rgba =
                 (await image.toByteData(format: ui.ImageByteFormat.rawRgba))!;
@@ -199,7 +284,29 @@ void main() {
             : tester.widget<Transform>(transition).transform.getTranslation().y;
       }
 
+      void expectJellyRest() {
+        final bar = find.byType(FloatingTabBar);
+        final label = [
+          '主页',
+          '关注',
+          '我的'
+        ][tester.widget<FloatingTabBar>(bar).selectedIndex];
+        final indicator = find.byKey(ValueKey('floating-tab-indicator-$label'));
+        final matrix = tester.widget<Transform>(indicator).transform;
+        expect(matrix.storage[0], 1);
+        expect(matrix.storage[5], 1);
+        final builder = find
+            .ancestor(of: indicator, matching: find.byType(AnimatedBuilder))
+            .first;
+        expect(
+            (tester.widget<AnimatedBuilder>(builder).animation
+                    as AnimationController)
+                .isAnimating,
+            isFalse);
+      }
+
       expect(pageOffset(), 0, reason: 'No startup animation');
+      expectJellyRest();
       await capture('portrait-home');
       for (final label in ['我的', '主页']) {
         await tester.tap(find.byKey(ValueKey('floating-tab-hit-$label')));
@@ -216,12 +323,53 @@ void main() {
                 .page,
             ['主页', '关注', '我的'].indexOf(label));
         await capture('switch-$label-0ms');
-        await tester.pump(const Duration(milliseconds: 80));
-        await capture('switch-$label-80ms');
-        await tester.pump(const Duration(milliseconds: 80));
-        await capture('switch-$label-160ms');
+        await tester.pump(const Duration(milliseconds: 60));
+        await capture('switch-$label-60ms');
+        await tester.pump(const Duration(milliseconds: 60));
+        await capture('switch-$label-120ms');
+        await tester.pump(const Duration(milliseconds: 60));
+        await capture('switch-$label-180ms');
+        await tester.pump(const Duration(milliseconds: 60));
+        await capture('switch-$label-240ms');
         await tester.pumpAndSettle();
       }
+      await tester.tap(find.byKey(const ValueKey('floating-tab-hit-我的')));
+      await tester.pump();
+      for (var ms = 0; ms <= 320; ms += 20) {
+        if (ms > 0) await tester.pump(const Duration(milliseconds: 20));
+        await capture('switch-dense-my-${ms}ms');
+      }
+      await tester.tap(find.byKey(const ValueKey('floating-tab-hit-主页')));
+      await tester.pumpAndSettle();
+      final previousHighlight = FocusManager.instance.highlightStrategy;
+      addTearDown(
+          () => FocusManager.instance.highlightStrategy = previousHighlight);
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      final homeFocus = FocusManager.instance.rootScope.descendants.firstWhere(
+          (node) =>
+              node.context?.findAncestorWidgetOfExactType<InkWell>()?.key ==
+              const ValueKey('floating-tab-hit-主页'));
+      homeFocus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(homeFocus.hasFocus, isTrue);
+      await capture('keyboard-focus-home');
+      homeFocus.unfocus();
+      FocusManager.instance.highlightStrategy = previousHighlight;
+      await tester.pumpAndSettle();
+      await capture('pressed-baseline-home');
+      final pressed = await tester.startGesture(
+          tester.getCenter(find.byKey(const ValueKey('floating-tab-hit-主页'))));
+      await tester.pump();
+      // Resolve the tap-down deadline, then advance the ink highlight itself.
+      await tester.pump(const Duration(milliseconds: 120));
+      await tester.pump(const Duration(milliseconds: 80));
+      expectJellyRest();
+      await capture('pressed-home-200ms');
+      await tester.pump(const Duration(milliseconds: 40));
+      await capture('pressed-home-240ms');
+      await pressed.up();
+      await tester.pumpAndSettle();
       // Latest tap wins, without visiting the intermediate root destination.
       for (final label in ['我的', '关注', '主页']) {
         await tester.tap(find.byKey(ValueKey('floating-tab-hit-$label')));
@@ -232,14 +380,18 @@ void main() {
                 .selectedIndex,
             ['主页', '关注', '我的'].indexOf(label));
       }
-      await tester.pump(const Duration(milliseconds: 160));
+      await tester.pump(const Duration(milliseconds: 240));
+      // Flutter completes a simulation on the first frame after its endpoint.
+      await tester.pump(const Duration(milliseconds: 16));
       expect(pageOffset(), 0);
+      expectJellyRest();
       expect(
           tester.widget<PageView>(find.byType(PageView).first).controller!.page,
           0);
       await tester.tap(find.byKey(const ValueKey('floating-tab-hit-主页')));
       await tester.pump();
       expect(pageOffset(), 0, reason: 'Reselect must not replay transition');
+      expectJellyRest();
       await tester.pumpAndSettle();
       // Interrupt an active transition with a rail and reduced-motion change.
       await tester.tap(find.byKey(const ValueKey('floating-tab-hit-我的')));
@@ -257,6 +409,7 @@ void main() {
           const FakeAccessibilityFeatures(disableAnimations: true);
       await tester.pump();
       expect(pageOffset(), 0);
+      expectJellyRest();
       tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
       await tester.pumpAndSettle();
       for (final label in ['关注', '我的', '主页']) {
@@ -367,14 +520,37 @@ void main() {
         priorPaintHook?.call(object);
         if (contentRenderObjects.contains(object)) contentPaints++;
       };
-      for (var frame = 0; frame < 12; frame++) {
+      for (var frame = 0; frame < 20; frame++) {
         await tester.pump(const Duration(milliseconds: 16));
       }
-      debugOnProfilePaint = priorPaintHook;
-      logCounts('animation-only-192ms');
+      logCounts('animation-only-320ms');
       debugPrint(
-          'NAV_WORK phase=animation-only-192ms contentPaints=$contentPaints');
+          'NAV_WORK phase=animation-only-320ms contentPaints=$contentPaints');
       expect(contentPaints, 0);
+      final indicator = find.byKey(const ValueKey('floating-tab-indicator-我的'));
+      final indicatorBuilder = find
+          .ancestor(of: indicator, matching: find.byType(AnimatedBuilder))
+          .first;
+      final jellyController = tester
+          .widget<AnimatedBuilder>(indicatorBuilder)
+          .animation as AnimationController;
+      expect(jellyController.isAnimating, isFalse);
+      expect(jellyController.status, AnimationStatus.completed);
+      debugPrint(
+          'NAV_WORK jellyCompleted=true dockSplashFactory=${tester.widget<InkWell>(find.byKey(const ValueKey('floating-tab-hit-我的'))).splashFactory.runtimeType}');
+      // Positive control: prove the same paintChild hook and subtree set work.
+      final visibleText = find
+          .descendant(
+              of: find.byType(PageView).first, matching: find.byType(RichText))
+          .first;
+      tester.renderObject<RenderParagraph>(visibleText).markNeedsPaint();
+      await tester.pump();
+      expect(contentPaints, greaterThan(0));
+      debugPrint('NAV_WORK positive-control contentPaints=$contentPaints');
+      debugOnProfilePaint = priorPaintHook;
+      // Material's own ripple can outlast the 240ms navigation pulse.
+      await tester.pumpAndSettle();
+      expect(tester.binding.transientCallbackCount, 0);
       for (final type in [
         'MainPage',
         'PageView',
@@ -513,6 +689,12 @@ void main() {
         await tester.tap(find.byKey(ValueKey('floating-tab-hit-$label')));
         await tester.pump();
         expect(pageOffset(), 0);
+        final matrix = tester
+            .widget<Transform>(
+                find.byKey(ValueKey('floating-tab-indicator-$label')))
+            .transform;
+        expect(matrix.storage[0], 1);
+        expect(matrix.storage[5], 1);
       }
       await tester.pumpAndSettle();
       tester.platformDispatcher.accessibilityFeaturesTestValue =
@@ -525,6 +707,20 @@ void main() {
       await tester.pump();
       expect(opacity(), 1);
       await capture('reduced-motion');
+      for (final features in [
+        const FakeAccessibilityFeatures(disableAnimations: true),
+        const FakeAccessibilityFeatures(accessibleNavigation: true)
+      ]) {
+        tester.platformDispatcher.accessibilityFeaturesTestValue = features;
+        await tester.pumpAndSettle();
+        for (final label in ['我的', '主页']) {
+          await tester.tap(find.byKey(ValueKey('floating-tab-hit-$label')));
+          await tester.pump();
+          expect(pageOffset(), 0);
+          expectJellyRest();
+        }
+        await tester.pumpAndSettle();
+      }
       tester.platformDispatcher.accessibilityFeaturesTestValue =
           const FakeAccessibilityFeatures();
       tester.view.physicalSize = const Size(320, 780);
@@ -594,6 +790,88 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     } finally {
       debugDisableShadows = previousShadows;
+      semantics.dispose();
+    }
+  });
+  testWidgets('English long-label component fixture retains accessible text',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(320, 780);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final semantics = tester.ensureSemantics();
+    final priorShadows = debugDisableShadows;
+    debugDisableShadows = false;
+    try {
+      final key = GlobalKey();
+      for (final scale in [1.0, 1.3, 2.0, 2.6]) {
+        await tester.pumpWidget(RepaintBoundary(
+            key: key,
+            child: MaterialApp(
+              theme: ThemeData(
+                  useMaterial3: true,
+                  fontFamily: AppFontChoice.bundledFontFamily),
+              home: MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                  child: Scaffold(
+                    body: Builder(
+                        builder: (context) => Center(
+                                child: FloatingTabBar(
+                              destinations: const [
+                                NavigationDestination(
+                                    icon: Icon(Icons.home_outlined),
+                                    label: 'Home'),
+                                NavigationDestination(
+                                    icon: Icon(Icons.feed_outlined),
+                                    label: 'Following'),
+                                NavigationDestination(
+                                    icon: Icon(Icons.person_outline),
+                                    label: 'Profile'),
+                              ],
+                              selectedIndex: 0,
+                              onDestinationSelected: (_) {},
+                              height: FloatingTabBar.heightFor(context),
+                            ))),
+                  )),
+            )));
+        await tester.pumpAndSettle();
+        for (final label in ['Home', 'Following', 'Profile']) {
+          final hit = find.byKey(ValueKey('floating-tab-hit-$label'));
+          expect(tester.getSize(hit).width, greaterThanOrEqualTo(48));
+          expect(tester.getSize(hit).height, greaterThanOrEqualTo(48));
+          final icon = find.descendant(of: hit, matching: find.byType(Icon));
+          final text = find.descendant(of: hit, matching: find.text(label));
+          expect(text, findsOneWidget);
+          expect(tester.getRect(icon).bottom,
+              lessThanOrEqualTo(tester.getRect(text).top));
+          expect(tester.widget<Text>(text).overflow, TextOverflow.ellipsis);
+          expect(find.byTooltip(label), findsOneWidget);
+          expect(find.bySemanticsLabel(label), findsOneWidget);
+        }
+        final paragraph = find.descendant(
+            of: find.text('Following'), matching: find.byType(RichText));
+        debugPrint(
+            'English fixture scale=$scale FollowingEllipsized=${tester.renderObject<RenderParagraph>(paragraph).didExceedMaxLines}');
+        if (scale >= 2) {
+          expect(
+              tester.renderObject<RenderParagraph>(paragraph).didExceedMaxLines,
+              isTrue);
+        }
+        await tester.runAsync(() async {
+          final boundary =
+              key.currentContext!.findRenderObject()! as RenderRepaintBoundary;
+          final image = await boundary.toImage(pixelRatio: 2);
+          final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+          final file = File(
+              'build/review/${const String.fromEnvironment('REVIEW_STAGE', defaultValue: 'fixed')}/english-component-$scale.png');
+          await file.parent.create(recursive: true);
+          await file.writeAsBytes(bytes!.buffer.asUint8List());
+          image.dispose();
+        });
+        expect(tester.takeException(), isNull);
+      }
+    } finally {
+      debugDisableShadows = priorShadows;
       semantics.dispose();
     }
   });
