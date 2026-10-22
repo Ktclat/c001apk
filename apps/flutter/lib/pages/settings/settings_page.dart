@@ -192,7 +192,7 @@ class _SettingsDetailPageState extends State<SettingsDetailPage> {
             const SwitchItem(
               icon: Icons.layers_outlined,
               title: '悬浮 Tab 导航',
-              subtitle: '紧凑居中胶囊；下滑收起、上滑出现，键盘时隐藏',
+              subtitle: '手指上推浏览后续内容时收起，下拉回看时出现；键盘时隐藏',
               boxKey: SettingsBoxKey.floatingTabBar,
               defaultValue: false,
             ),

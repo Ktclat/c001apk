@@ -11,6 +11,7 @@ import '../../../pages/home/feed/home_feed_controller.dart';
 import '../../../pages/home/home_page.dart' show TabType;
 import '../../../pages/home/return_top_controller.dart';
 import '../../../utils/global_data.dart';
+import '../../../utils/navigation_diagnostics.dart';
 import '../../../utils/storage_util.dart';
 import '../../../utils/utils.dart';
 import '../../feed/reply/reply_page.dart';
@@ -81,7 +82,8 @@ class _HomeFeedPageState extends State<HomeFeedPage>
     super.initState();
 
     _homeFeedController.refreshKey = GlobalKey<RefreshIndicatorState>();
-    _homeFeedController.scrollController = ScrollController();
+    _homeFeedController.scrollController = ScrollController()
+      ..addListener(_recordPosition);
     _homeFeedController.returnTopController =
         Get.find<ReturnTopController>(tag: 'home');
 
@@ -108,6 +110,14 @@ class _HomeFeedPageState extends State<HomeFeedPage>
     }
   }
 
+  void _recordPosition() {
+    final controller = _homeFeedController.scrollController;
+    if (controller != null && controller.hasClients) {
+      NavigationDiagnostics.instance
+          .feedPosition(widget.tabType.name, controller.position);
+    }
+  }
+
   void _showFab() {
     if (!_isFabVisible) {
       _isFabVisible = true;
@@ -125,9 +135,18 @@ class _HomeFeedPageState extends State<HomeFeedPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Scaffold(
-      floatingActionButton:
-          GlobalData().isLogin && widget.tabType == TabType.FEED
+    return Listener(
+        onPointerDown: (event) => NavigationDiagnostics.instance
+            .feedPointer(widget.tabType.name, 'down', event.kind.name, null),
+        onPointerMove: (event) => NavigationDiagnostics.instance.feedPointer(
+            widget.tabType.name, 'move', event.kind.name, event.delta.dy),
+        onPointerUp: (event) => NavigationDiagnostics.instance
+            .feedPointer(widget.tabType.name, 'up', event.kind.name, null),
+        onPointerCancel: (event) => NavigationDiagnostics.instance
+            .feedPointer(widget.tabType.name, 'cancel', event.kind.name, null),
+        child: Scaffold(
+          floatingActionButton: GlobalData().isLogin &&
+                  widget.tabType == TabType.FEED
               ? Padding(
                   padding: EdgeInsets.only(
                       bottom: FloatingNavigationInset.of(context)),
@@ -148,16 +167,17 @@ class _HomeFeedPageState extends State<HomeFeedPage>
                                 (buildContext, animation, secondaryAnimation) {
                               return const ReplyPage();
                             },
-                            transitionDuration: const Duration(milliseconds: 500),
-                            transitionBuilder:
-                                (context, animation, secondaryAnimation, child) {
+                            transitionDuration:
+                                const Duration(milliseconds: 500),
+                            transitionBuilder: (context, animation,
+                                secondaryAnimation, child) {
                               const begin = Offset(0.0, 1.0);
                               const end = Offset.zero;
                               const curve = Curves.linear;
-  
+
                               var tween = Tween(begin: begin, end: end)
                                   .chain(CurveTween(curve: curve));
-  
+
                               return SlideTransition(
                                 position: animation.drive(tween),
                                 child: child,
@@ -174,10 +194,10 @@ class _HomeFeedPageState extends State<HomeFeedPage>
                       tooltip: '发布动态',
                       child: const Icon(Icons.add),
                     ),
-                ),
+                  ),
                 )
               : null,
-      body: commonBody(_homeFeedController),
-    );
+          body: commonBody(_homeFeedController),
+        ));
   }
 }

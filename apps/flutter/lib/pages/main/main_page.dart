@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../components/floating_tab_bar.dart';
+import '../../utils/navigation_diagnostics.dart';
 import '../../pages/home/return_top_controller.dart';
 import '../../pages/home/home_page.dart';
 import '../../pages/main/main_controller.dart';
@@ -56,7 +57,8 @@ class _MainPageState extends State<MainPage>
     curve: Curves.easeOutCubic,
   );
 
-  void _revealDock() {
+  void _revealDock(String reason) {
+    NavigationDiagnostics.instance.reveal(reason);
     _scrollTravel = 0;
     _dockVisible.value = true;
   }
@@ -64,23 +66,46 @@ class _MainPageState extends State<MainPage>
   /// Follow user scrolling, including wheel updates and the ballistic tail of
   /// a touch fling. dragDetails is null for both, even on the real feed list.
   bool _handleRootScroll(int page, ScrollNotification notification) {
+    final source = notification.context;
+    final tickerEnabled = source == null || TickerMode.of(source);
+    final currentRoute =
+        source == null ? null : ModalRoute.of(source)?.isCurrent;
+    void record(String decision, {double? consumed}) {
+      NavigationDiagnostics.instance.rootNotification(notification, decision,
+          page: page,
+          selected: _selectedIndex,
+          userSession: _userScrollActive,
+          tickerEnabled: tickerEnabled,
+          currentRoute: currentRoute,
+          visible: _dockVisible.value,
+          accumulated: _scrollTravel,
+          consumed: consumed);
+    }
+
     if (!_floatingActive || _accessibleNavigation || page != _selectedIndex) {
+      record(!_floatingActive
+          ? 'floating_inactive'
+          : _accessibleNavigation
+              ? 'accessible_navigation'
+              : 'inactive_root');
       return false;
     }
-    final source = notification.context;
-    if (source != null &&
-        (!TickerMode.of(source) || ModalRoute.of(source)?.isCurrent == false)) {
+    if (!tickerEnabled || currentRoute == false) {
+      record(!tickerEnabled ? 'ticker_disabled' : 'route_not_current');
       return false;
     }
     // Restore on a Home tab change, not an embedded horizontal media carousel.
     if (notification.metrics.axis == Axis.horizontal) {
+      var decision = 'horizontal_ignored';
       if (notification.depth == 0 &&
           notification.metrics is PageMetrics &&
           notification is ScrollUpdateNotification &&
           (notification.scrollDelta ?? 0).abs() > 0) {
         _userScrollActive = false;
-        _revealDock();
+        _revealDock('home_tab_transition');
+        decision = 'home_tab_reveal';
       }
+      record(decision);
       return false;
     }
     if (notification is UserScrollNotification &&
@@ -91,9 +116,12 @@ class _MainPageState extends State<MainPage>
       _userScrollActive = true;
       _scrollTravel = 0;
     }
+    var decision = 'non_update';
+    double? consumed;
     final metrics = notification.metrics;
     if (metrics.pixels <= metrics.minScrollExtent + 0.5) {
-      _revealDock();
+      _revealDock('top');
+      decision = 'top_reveal';
     } else if (notification is ScrollUpdateNotification &&
         (_userScrollActive || notification.dragDetails != null)) {
       final rawDelta = notification.scrollDelta ?? 0;
@@ -103,16 +131,33 @@ class _MainPageState extends State<MainPage>
       final previous = (metrics.pixels - rawDelta)
           .clamp(metrics.minScrollExtent, metrics.maxScrollExtent);
       final delta = current - previous;
+      consumed = delta;
+      decision = delta == 0 ? 'no_consumed_distance' : 'below_threshold';
       if (delta != 0) {
         if (_scrollTravel.sign != delta.sign) _scrollTravel = 0;
         _scrollTravel = (_scrollTravel + delta).clamp(-80.0, 80.0);
         if (_scrollTravel >= 28 && _dockVisible.value) {
           _dockVisible.value = false;
+          NavigationDiagnostics.instance.dockVisibilityChanged(false);
+          decision = 'hide_threshold';
         } else if (_scrollTravel <= -20 && !_dockVisible.value) {
           _dockVisible.value = true;
+          NavigationDiagnostics.instance.dockVisibilityChanged(true);
+          decision = 'reveal_threshold';
+        } else if (_scrollTravel >= 28) {
+          decision = 'already_hidden';
+        } else if (_scrollTravel <= -20) {
+          decision = 'already_visible';
         }
       }
     }
+    if (notification is ScrollUpdateNotification &&
+        !_userScrollActive &&
+        notification.dragDetails == null &&
+        decision == 'non_update') {
+      decision = 'no_user_session';
+    }
+    record(decision, consumed: consumed);
     if (notification is ScrollEndNotification) _userScrollActive = false;
     // Keep RefreshIndicator, nested tabs and other observers connected.
     return false;
@@ -128,6 +173,7 @@ class _MainPageState extends State<MainPage>
   void _sessionChanged() {
     if (!mounted || _resetting) return;
     _dockVisible.value = true;
+    NavigationDiagnostics.instance.reveal('account_session_change');
     _userScrollActive = false;
     _scrollTravel = 0;
     _pageSwitch.value = 1;
@@ -237,7 +283,7 @@ class _MainPageState extends State<MainPage>
                     _navigationWindow = constraints.biggest;
                     _userScrollActive = false;
                     _pageSwitch.value = 1;
-                    _revealDock();
+                    _revealDock('window_change');
                   }
                   final safeWidth =
                       constraints.maxWidth - media.viewPadding.horizontal;
@@ -265,7 +311,7 @@ class _MainPageState extends State<MainPage>
                     _floatingActive = floating;
                     _accessibleNavigation = accessible;
                     _pageSwitch.value = 1;
-                    _revealDock();
+                    _revealDock('mode_or_accessibility_change');
                   }
                   final safeBottom = math.max(media.viewPadding.bottom,
                       media.systemGestureInsets.bottom);
@@ -281,6 +327,13 @@ class _MainPageState extends State<MainPage>
                   final scrollClearance =
                       floating ? dockHeight + dockBottom + 16.0 : 0.0;
 
+                  NavigationDiagnostics.instance.rootConfiguration(
+                      media, constraints.biggest,
+                      floatingSetting: GStorage.floatingTabBar,
+                      floatingActive: floating,
+                      rail: useRail,
+                      selectedRoot: _selectedIndex,
+                      visible: _dockVisible.value);
                   return Scaffold(
                     body: Stack(
                       children: [
@@ -329,7 +382,8 @@ class _MainPageState extends State<MainPage>
                                                     if (index ==
                                                         _selectedIndex) {
                                                       _userScrollActive = false;
-                                                      _revealDock();
+                                                      _revealDock(
+                                                          'root_content_change');
                                                     }
                                                     return false;
                                                   },
@@ -443,6 +497,7 @@ class _MainPageState extends State<MainPage>
     _scrollTravel = 0;
     _userScrollActive = false;
     _dockVisible.value = true;
+    NavigationDiagnostics.instance.reveal('root_selection_or_reselect');
     if (index == 0 && _selectedIndex == 0) {
       _pageScrollController.setIndex(998);
     } else if (index == 1 && _selectedIndex == 1) {
@@ -459,6 +514,7 @@ class _MainPageState extends State<MainPage>
       _pageSwitch.forward(from: 0);
     }
     _selectedIndex = index;
+    NavigationDiagnostics.instance.rootSelection(index);
     _indexSctream.add(index);
   }
 }

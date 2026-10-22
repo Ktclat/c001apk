@@ -10,6 +10,9 @@ import 'package:c001apk_flutter/pages/carousel/carousel_page.dart';
 import 'package:c001apk_flutter/pages/carousel/carousel_controller.dart';
 import 'package:c001apk_flutter/components/cards/feed_card.dart';
 import 'dart:ui' as ui;
+import 'package:c001apk_flutter/utils/navigation_diagnostics.dart';
+import 'package:c001apk_flutter/components/update_check_tile.dart';
+import 'package:c001apk_flutter/pages/settings/navigation_diagnostics_page.dart';
 import 'package:c001apk_flutter/main.dart';
 import 'package:c001apk_flutter/pages/home/feed/home_feed_controller.dart';
 import 'package:c001apk_flutter/pages/home/feed/home_feed_page.dart';
@@ -216,11 +219,178 @@ void main() {
   });
 
   tearDown(() async {
+    NavigationDiagnostics.instance.clear();
     Get.reset();
   });
   tearDownAll(() async {
     await Hive.close();
     await temp.delete(recursive: true);
+  });
+
+  testWidgets(
+      'diagnostics records Home FEED touch signals and exact suppression gates',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 890);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await finishFixtureIo(tester, () => GStorage.setFloatingTabBar(true));
+    await tester.pumpWidget(const C001APKAPP());
+    await tester.pumpAndSettle();
+    final feed = Get.find<HomeFeedController>(tag: 'FEED');
+    feed.isEnd = true;
+    feed.loadingState.value = Success(List.generate(
+        60,
+        (i) => Datum.fromJson({
+              ...EmptyGuestAdapter.feed,
+              'id': 1000 + i,
+              'message': 'PRIVATE-FIXTURE-TEXT-$i',
+            })));
+    await tester.pumpAndSettle();
+    final list = find.descendant(
+        of: find.byWidgetPredicate(
+            (w) => w is HomeFeedPage && w.tabType == TabType.FEED),
+        matching: find.byType(ListView));
+    final dock = find.byType(FloatingTabBar);
+    double opacity() => tester
+        .widget<AnimatedOpacity>(
+            find.ancestor(of: dock, matching: find.byType(AnimatedOpacity)))
+        .opacity;
+    final recorder = NavigationDiagnostics.instance;
+    recorder.clear();
+    await tester.drag(list, const Offset(0, -140));
+    await tester.pumpAndSettle();
+    expect(recorder.counts, isEmpty, reason: 'No opt-in: no scroll capture');
+    feed.scrollController!.jumpTo(0);
+    await tester.pumpAndSettle();
+    recorder.start();
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    expect(recorder.counts['feed.FEED.pointer.move'], greaterThan(0));
+    expect(recorder.counts['feed.FEED.positionChanged'], greaterThan(0));
+    expect(recorder.counts['home.vertical.forwarded'], greaterThan(0));
+    expect(recorder.counts['root.vertical.hide_threshold'], greaterThan(0));
+    expect(
+        recorder.environment['selectedHomeIndex'], Platform.isAndroid ? 1 : 0);
+    expect(recorder.environment['homeTabCount'], Platform.isAndroid ? 6 : 5);
+    expect(recorder.environment['selectedHomeTab'], 'FEED');
+    expect(recorder.report(), isNot(contains('PRIVATE-FIXTURE-TEXT')));
+    expect(recorder.report(), isNot(contains('synthetic-test-device')));
+
+    feed.scrollController!.jumpTo(0);
+    await tester.pumpAndSettle();
+    recorder.start();
+    feed.scrollController!.jumpTo(300);
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    expect(recorder.counts['root.vertical.no_user_session'], greaterThan(0));
+    expect(recorder.counts['feed.FEED.pointer.move'], isNull);
+
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(accessibleNavigation: true);
+    await tester.pumpAndSettle();
+    recorder.start();
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    expect(
+        recorder.counts['root.vertical.accessible_navigation'], greaterThan(0));
+    expect(recorder.environment['accessibleNavigation'], true);
+
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    await tester.pumpAndSettle();
+    recorder.start();
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    expect(recorder.environment['disableAnimations'], true);
+    expect(recorder.counts['root.vertical.hide_threshold'], greaterThan(0));
+    for (var i = 0; i < 100; i++) {
+      recorder.reveal('bounded-test');
+    }
+    expect(recorder.events.length, NavigationDiagnostics.maxEvents);
+    recorder.recording = false;
+    final stopped = jsonEncode(recorder.events);
+    await tester.drag(list, const Offset(0, 100));
+    await tester.pumpAndSettle();
+    expect(jsonEncode(recorder.events), stopped);
+    recorder.clear();
+    expect(recorder.counts, isEmpty);
+    expect(recorder.events, isEmpty);
+    await tester.tap(find.text('热门'));
+    await tester.pumpAndSettle();
+    expect(recorder.environment['selectedHomeTab'], 'HOT',
+        reason: 'Selection updates even for empty tab without a vertical drag');
+    await tester.tap(find.byKey(const ValueKey('floating-tab-hit-我的')));
+    await tester.pumpAndSettle();
+    expect(recorder.environment['selectedRoot'], 2,
+        reason: 'Root selection does not depend on a parent rebuild');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('diagnostics UI is opt-in and copies only on explicit tap',
+      (tester) async {
+    final recorder = NavigationDiagnostics.instance;
+    recorder.clear();
+    String? copied;
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+      if (call.method == 'Clipboard.setData') {
+        copied = (call.arguments as Map)['text'] as String;
+      }
+      return null;
+    });
+    addTearDown(() => TestDefaultBinaryMessengerBinding
+        .instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 890);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    final key = GlobalKey();
+    await tester.pumpWidget(RepaintBoundary(
+        key: key,
+        child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(fontFamily: AppFontChoice.bundledFontFamily),
+            home: const NavigationDiagnosticsPage())));
+    await tester.pumpAndSettle();
+    expect(recorder.recording, false);
+    expect(copied, isNull);
+    await tester.tap(find.text('开始新记录'));
+    await tester.pumpAndSettle();
+    expect(recorder.recording, true);
+    recorder.reveal('test_only_not_device');
+    await tester.tap(find.text('停止并查看'));
+    await tester.pumpAndSettle();
+    expect(recorder.recording, false);
+    expect(copied, isNull);
+    await tester.tap(find.text('复制报告'));
+    await tester.pumpAndSettle();
+    expect(jsonDecode(copied!)['schema'], 1);
+    if (NavigationBuildIdentity.diagnostic) {
+      tester
+          .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
+          .clearSnackBars();
+      await tester.pumpAndSettle();
+      await AppUpdates.check(
+          tester.element(find.byType(NavigationDiagnosticsPage)));
+      await tester.pumpAndSettle();
+      expect(find.text('独立诊断版不检查正式更新，也不会替换原应用'), findsOneWidget);
+    }
+    await tester.pump(const Duration(seconds: 5));
+    await tester.pumpAndSettle();
+    await captureRoot(tester, key,
+        'build/review/diagnostics/${NavigationBuildIdentity.diagnostic ? 'standalone' : 'normal'}-opt-in-report-ui.png');
+    await tester.tap(find.text('清空记录'));
+    await tester.pumpAndSettle();
+    expect(recorder.events, isEmpty);
+    recorder.environment['nonFiniteTest'] = double.infinity;
+    expect(() => jsonDecode(recorder.report()), returnsNormally);
+    recorder.environment.remove('nonFiniteTest');
   });
 
   final cases = [

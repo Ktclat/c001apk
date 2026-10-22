@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../constants/constants.dart';
+import '../../utils/navigation_diagnostics.dart';
+import 'navigation_diagnostics_page.dart';
 import '../../components/app_logo.dart';
 import '../../components/update_check_tile.dart';
 import '../../utils/utils.dart';
@@ -40,6 +42,13 @@ class AboutPage extends StatelessWidget {
             onTap: () {},
           ),
           ListTile(
+            leading: const Icon(Icons.build_outlined),
+            title: const Text('构建与悬浮导航诊断'),
+            subtitle: Text(NavigationBuildIdentity.label),
+            onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => const NavigationDiagnosticsPage())),
+          ),
+          ListTile(
             leading: const Icon(Icons.code),
             title: const Text('项目地址'),
             subtitle: const Text(Constants.URL_SOURCE_CODE),
@@ -69,8 +78,7 @@ class AboutPage extends StatelessWidget {
             leading: const Icon(Icons.bug_report_outlined),
             title: const Text('问题反馈'),
             subtitle: const Text('在本项目仓库提交问题或功能建议'),
-            onTap: () =>
-                Utils.launchURL('${Constants.URL_SOURCE_CODE}/issues'),
+            onTap: () => Utils.launchURL('${Constants.URL_SOURCE_CODE}/issues'),
           ),
           ListTile(
             leading: const Icon(Icons.favorite_outline),

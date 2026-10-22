@@ -26,7 +26,7 @@
     </queries>
 
     <application
-        android:label="c001apk"
+        android:label="${applicationLabel}"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:roundIcon="@mipmap/ic_launcher_round"
