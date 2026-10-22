@@ -63,9 +63,11 @@ This demonstrates that the added motion does not introduce per-tick feed rebuild
 
 Final Debug and ARM64-only Profile builds succeeded against the same frozen app source and passed Android Debug signature verification (v1/v2). Profile uses AOT compilation for subsequent device evaluation; neither APK is a release or proof of smoothness. Package `io.github.ktclat.c001apk`, version `0.1.0+1`, minimum SDK 21 and target SDK 34 are unchanged. Do not use split-per-ABI version-code overrides for this candidate.
 
-- ARM64 Profile: 34,082,473 bytes; SHA-256 `d8550621e70b6ca95335706ead739725b12bac7ed6a5c2d591ecb1f3846ea6d8`.
-- Debug: 134,378,098 bytes; SHA-256 `7e12fe81b1a1f00ebddf57031b9f299df8b296c41b944757696613c0ef516760`.
+- ARM64 Profile: 27,945,412 bytes; SHA-256 `06cd9d51135904d4d0b7148a5d28b05722f456790599e81b9cd2f4a06ee9db2e`.
+- Debug: 109,521,124 bytes; SHA-256 `fc082dc3e6eae7b9aff24519a59133eb65d27f3cd2c532dbac54ba5587896f49`.
 - The frozen floating-navigation component has SHA-256 `36a34601f149cff64ec7612da553b95f07252a2e50017ac33ff1b52841aafdaf`. No application source changed during either build.
+
+The application source is commit `de90ced97ad0ab384e6cd99c76e78c843ed1c558`. The hashes above refer to fresh Gradle packaging of that source. Earlier valid incremental APKs contained unreferenced ZIP gaps; supported clean packaging reduced those gaps to 132 bytes without changing any decompressed ZIP entry, ABI, AOT code or asset. The earlier hashes remain historical build evidence, not the current delivery candidates.
 
 The debug signing identity can differ from an already-installed app. Do not uninstall an existing installation merely to bypass a signature conflict; local data may be lost.
 
