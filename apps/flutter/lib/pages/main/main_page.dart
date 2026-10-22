@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -36,6 +37,7 @@ class _MainPageState extends State<MainPage>
   // Scroll toggles this notifier without rebuilding the image-heavy PageView.
   final ValueNotifier<bool> _dockVisible = ValueNotifier<bool>(true);
   double _scrollTravel = 0;
+  bool _userScrollActive = false;
   bool _floatingActive = false;
   bool _accessibleNavigation = false;
   bool _usingRail = false;
@@ -57,34 +59,60 @@ class _MainPageState extends State<MainPage>
     _dockVisible.value = true;
   }
 
-  /// Hide on a deliberate downward drag and reappear on upward scrolling.
-  /// This avoids covering a long paragraph while the user is reading.
+  /// Follow user scrolling, including wheel updates and the ballistic tail of
+  /// a touch fling. dragDetails is null for both, even on the real feed list.
   bool _handleRootScroll(int page, ScrollNotification notification) {
     if (!_floatingActive || _accessibleNavigation || page != _selectedIndex) {
       return false;
     }
-    // A nested Home tab can become empty/non-scrollable. Its programmatic
-    // horizontal transition must restore navigation, not just horizontal drags.
-    if (notification.metrics.axis == Axis.horizontal) {
-      if (notification is ScrollUpdateNotification) _revealDock();
+    final source = notification.context;
+    if (source != null &&
+        (!TickerMode.of(source) || ModalRoute.of(source)?.isCurrent == false)) {
       return false;
     }
-    if (notification is ScrollEndNotification) {
-      _scrollTravel = 0;
-    } else if (notification is ScrollUpdateNotification &&
+    // Restore on a Home tab change, not an embedded horizontal media carousel.
+    if (notification.metrics.axis == Axis.horizontal) {
+      if (notification.depth == 0 &&
+          notification.metrics is PageMetrics &&
+          notification is ScrollUpdateNotification &&
+          (notification.scrollDelta ?? 0).abs() > 0) {
+        _userScrollActive = false;
+        _revealDock();
+      }
+      return false;
+    }
+    if (notification is UserScrollNotification &&
+        notification.direction != ScrollDirection.idle) {
+      _userScrollActive = true;
+    } else if (notification is ScrollStartNotification &&
         notification.dragDetails != null) {
-      final delta = notification.scrollDelta ?? 0;
-      if (delta == 0) return false;
-      if (_scrollTravel.sign != delta.sign) _scrollTravel = 0;
-      _scrollTravel = (_scrollTravel + delta).clamp(-80.0, 80.0);
-      if (_scrollTravel >= 28 && _dockVisible.value) {
-        _dockVisible.value = false;
-      } else if (_scrollTravel <= -20 && !_dockVisible.value) {
-        _dockVisible.value = true;
+      _userScrollActive = true;
+      _scrollTravel = 0;
+    }
+    final metrics = notification.metrics;
+    if (metrics.pixels <= metrics.minScrollExtent + 0.5) {
+      _revealDock();
+    } else if (notification is ScrollUpdateNotification &&
+        (_userScrollActive || notification.dragDetails != null)) {
+      final rawDelta = notification.scrollDelta ?? 0;
+      // Bounce outside content bounds must not reverse the navigation state.
+      final current = metrics.pixels
+          .clamp(metrics.minScrollExtent, metrics.maxScrollExtent);
+      final previous = (metrics.pixels - rawDelta)
+          .clamp(metrics.minScrollExtent, metrics.maxScrollExtent);
+      final delta = current - previous;
+      if (delta != 0) {
+        if (_scrollTravel.sign != delta.sign) _scrollTravel = 0;
+        _scrollTravel = (_scrollTravel + delta).clamp(-80.0, 80.0);
+        if (_scrollTravel >= 28 && _dockVisible.value) {
+          _dockVisible.value = false;
+        } else if (_scrollTravel <= -20 && !_dockVisible.value) {
+          _dockVisible.value = true;
+        }
       }
     }
-    // Never swallow notifications: refresh indicators and nested tabs
-    // continue receiving their scroll events.
+    if (notification is ScrollEndNotification) _userScrollActive = false;
+    // Keep RefreshIndicator, nested tabs and other observers connected.
     return false;
   }
 
@@ -98,6 +126,7 @@ class _MainPageState extends State<MainPage>
   void _sessionChanged() {
     if (!mounted || _resetting) return;
     _dockVisible.value = true;
+    _userScrollActive = false;
     _scrollTravel = 0;
     _pageSwitch.value = 1;
     setState(() => _resetting = true);
@@ -221,6 +250,7 @@ class _MainPageState extends State<MainPage>
                   // prevents rail/IME scrolls from hiding a future portrait dock.
                   if (_floatingActive != floating ||
                       _accessibleNavigation != accessible) {
+                    _userScrollActive = false;
                     _floatingActive = floating;
                     _accessibleNavigation = accessible;
                     _pageSwitch.value = 1;
@@ -380,6 +410,7 @@ class _MainPageState extends State<MainPage>
   void onDestinationSelected(int index) {
     if (_resetting || !_contrller.hasClients) return;
     _scrollTravel = 0;
+    _userScrollActive = false;
     _dockVisible.value = true;
     if (index == 0 && _selectedIndex == 0) {
       _pageScrollController.setIndex(998);

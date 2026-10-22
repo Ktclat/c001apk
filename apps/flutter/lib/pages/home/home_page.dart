@@ -122,7 +122,16 @@ class _HomePageState extends State<HomePage>
           )
         ],
       ),
-      body: TabBarView(controller: _tabController, children: _pages),
+      body: TabBarView(controller: _tabController, children: [
+        for (var index = 0; index < _pages.length; index++)
+          NotificationListener<ScrollNotification>(
+            // Kept-alive tabs may finish a fling or reset their position after
+            // selection changes. Only the selected tab controls root chrome.
+            // RefreshIndicator and observers inside each tab still see events.
+            onNotification: (_) => index != _tabController.index,
+            child: _pages[index],
+          ),
+      ]),
     );
   }
 }
