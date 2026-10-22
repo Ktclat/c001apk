@@ -332,7 +332,8 @@ void main() {
         .selectedIndex, 1);
 
     // A deliberate scroll down hides the dock and an upward scroll restores it.
-    final pageContext = tester.element(find.byType(PageView).first);
+    // Dispatch from the selected root page, not the PageView itself.
+    final pageContext = tester.element(find.byType(FollowFeedPage));
     final metrics = FixedScrollMetrics(
       minScrollExtent: 0,
       maxScrollExtent: 1000,

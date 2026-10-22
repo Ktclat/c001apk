@@ -24,7 +24,8 @@ class MainPage extends StatefulWidget {
   State<MainPage> createState() => _MainPageState();
 }
 
-class _MainPageState extends State<MainPage> {
+class _MainPageState extends State<MainPage>
+    with SingleTickerProviderStateMixin {
   final ReturnTopController _pageScrollController =
       Get.put(ReturnTopController(), tag: 'home');
   int _selectedIndex = 0;
@@ -35,12 +36,37 @@ class _MainPageState extends State<MainPage> {
   // Scroll toggles this notifier without rebuilding the image-heavy PageView.
   final ValueNotifier<bool> _dockVisible = ValueNotifier<bool>(true);
   double _scrollTravel = 0;
+  bool _floatingActive = false;
+  bool _accessibleNavigation = false;
+  bool _usingRail = false;
+  bool _reducedMotion = false;
+  // Translate only the incoming content. No outgoing feed, alpha layer, or
+  // intermediate root page participates in this short navigation transition.
+  late final AnimationController _pageSwitch = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 160),
+    value: 1,
+  );
+  late final CurvedAnimation _pageSettle = CurvedAnimation(
+    parent: _pageSwitch,
+    curve: Curves.easeOutCubic,
+  );
+
+  void _revealDock() {
+    _scrollTravel = 0;
+    _dockVisible.value = true;
+  }
 
   /// Hide on a deliberate downward drag and reappear on upward scrolling.
   /// This avoids covering a long paragraph while the user is reading.
-  bool _handleRootScroll(ScrollNotification notification) {
-    if (!GStorage.floatingTabBar ||
-        notification.metrics.axis != Axis.vertical) {
+  bool _handleRootScroll(int page, ScrollNotification notification) {
+    if (!_floatingActive || _accessibleNavigation || page != _selectedIndex) {
+      return false;
+    }
+    // A nested Home tab can become empty/non-scrollable. Its programmatic
+    // horizontal transition must restore navigation, not just horizontal drags.
+    if (notification.metrics.axis == Axis.horizontal) {
+      if (notification is ScrollUpdateNotification) _revealDock();
       return false;
     }
     if (notification is ScrollEndNotification) {
@@ -62,7 +88,6 @@ class _MainPageState extends State<MainPage> {
     return false;
   }
 
-
   @override
   void initState() {
     super.initState();
@@ -74,6 +99,7 @@ class _MainPageState extends State<MainPage> {
     if (!mounted || _resetting) return;
     _dockVisible.value = true;
     _scrollTravel = 0;
+    _pageSwitch.value = 1;
     setState(() => _resetting = true);
     // Unmount old account pages for a complete frame before reusing the
     // existing Get controller tags. Routes containing old account data close.
@@ -90,6 +116,8 @@ class _MainPageState extends State<MainPage> {
   @override
   void dispose() {
     AccountStore.changes.removeListener(_sessionChanged);
+    _pageSettle.dispose();
+    _pageSwitch.dispose();
     _dockVisible.dispose();
     _indexSctream.close();
     _contrller.dispose();
@@ -179,12 +207,27 @@ class _MainPageState extends State<MainPage> {
                       MediaQuery.viewInsetsOf(context).bottom > 0;
                   // Hide bottom navigation while typing to avoid covering
                   // chat, search and reply input fields.
-                  final floating = !useRail &&
-                      !keyboardOpen &&
-                      GStorage.floatingTabBar;
-                  final safeBottom = MediaQuery.viewPaddingOf(context).bottom;
-                  final bottomGap =
-                      constraints.maxHeight < 600 ? 8.0 : 12.0;
+                  final floating =
+                      !useRail && !keyboardOpen && GStorage.floatingTabBar;
+                  final media = MediaQuery.of(context);
+                  final accessible = media.accessibleNavigation;
+                  final reduceMotion = media.disableAnimations || accessible;
+                  if (_usingRail != useRail || _reducedMotion != reduceMotion) {
+                    _usingRail = useRail;
+                    _reducedMotion = reduceMotion;
+                    _pageSwitch.value = 1;
+                  }
+                  // Reset when the dock enters/leaves the layout. This also
+                  // prevents rail/IME scrolls from hiding a future portrait dock.
+                  if (_floatingActive != floating ||
+                      _accessibleNavigation != accessible) {
+                    _floatingActive = floating;
+                    _accessibleNavigation = accessible;
+                    _pageSwitch.value = 1;
+                    _revealDock();
+                  }
+                  final safeBottom = media.viewPadding.bottom;
+                  final bottomGap = constraints.maxHeight < 600 ? 8.0 : 12.0;
                   final sideInset = constraints.maxWidth < 340 ? 8.0 : 16.0;
                   final dockHeight = FloatingTabBar.heightFor(context);
                   final dockBottom = bottomGap + safeBottom;
@@ -214,13 +257,39 @@ class _MainPageState extends State<MainPage> {
                                     ),
                                   ),
                                 Expanded(
-                                  child: NotificationListener<ScrollNotification>(
-                                    onNotification: _handleRootScroll,
-                                    child: PageView(
-                                      physics:
-                                          const NeverScrollableScrollPhysics(),
-                                      controller: _contrller,
-                                      children: pages,
+                                  child: AnimatedBuilder(
+                                    animation: _pageSettle,
+                                    // A stable child keeps animation ticks out
+                                    // of the PageView/feed build and layout.
+                                    child: RepaintBoundary(
+                                      child: PageView(
+                                        physics:
+                                            const NeverScrollableScrollPhysics(),
+                                        controller: _contrller,
+                                        children: [
+                                          for (var index = 0;
+                                              index < pages.length;
+                                              index++)
+                                            NotificationListener<
+                                                ScrollNotification>(
+                                              onNotification: (notification) =>
+                                                  _handleRootScroll(
+                                                      index, notification),
+                                              child: pages[index],
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                    builder: (context, child) =>
+                                        Transform.translate(
+                                      key: const ValueKey(
+                                          'root-page-transition'),
+                                      offset: Offset(
+                                          0,
+                                          reduceMotion
+                                              ? 0
+                                              : 4 * (1 - _pageSettle.value)),
+                                      child: child,
                                     ),
                                   ),
                                 ),
@@ -230,8 +299,8 @@ class _MainPageState extends State<MainPage> {
                         ),
                         if (floating)
                           Positioned(
-                            left: 0,
-                            right: 0,
+                            left: media.viewPadding.left,
+                            right: media.viewPadding.right,
                             bottom: dockBottom,
                             child: Padding(
                               padding:
@@ -258,21 +327,26 @@ class _MainPageState extends State<MainPage> {
                                   ),
                                   builder: (context, visible, dock) =>
                                       AnimatedSlide(
-                                    duration:
-                                        const Duration(milliseconds: 180),
+                                    duration: reduceMotion
+                                        ? Duration.zero
+                                        : const Duration(milliseconds: 180),
                                     curve: Curves.easeOutCubic,
                                     offset: visible
                                         ? Offset.zero
                                         : const Offset(0, 1.5),
                                     child: AnimatedOpacity(
-                                      duration:
-                                          const Duration(milliseconds: 150),
+                                      duration: reduceMotion
+                                          ? Duration.zero
+                                          : const Duration(milliseconds: 150),
                                       opacity: visible ? 1 : 0,
                                       child: IgnorePointer(
                                         ignoring: !visible,
                                         child: ExcludeSemantics(
                                           excluding: !visible,
-                                          child: dock!,
+                                          child: ExcludeFocus(
+                                            excluding: !visible,
+                                            child: dock!,
+                                          ),
                                         ),
                                       ),
                                     ),
@@ -315,6 +389,13 @@ class _MainPageState extends State<MainPage> {
     // Avoid animating two image-heavy root pages simultaneously.
     if (index == _selectedIndex) return;
     _contrller.jumpToPage(index);
+    final media = MediaQuery.of(context);
+    if (media.disableAnimations || media.accessibleNavigation) {
+      _pageSwitch.value = 1;
+    } else {
+      // Rapid taps restart one bounded transition; no animation queue builds.
+      _pageSwitch.forward(from: 0);
+    }
     _selectedIndex = index;
     _indexSctream.add(index);
   }

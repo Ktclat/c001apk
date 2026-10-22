@@ -13,7 +13,8 @@ class FloatingNavigationInset extends InheritedWidget {
   final double bottom;
 
   static double of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<FloatingNavigationInset>()
+      context
+          .dependOnInheritedWidgetOfExactType<FloatingNavigationInset>()
           ?.bottom ??
       0;
 
@@ -55,7 +56,7 @@ class FloatingTabBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
-    final showSelectedText = scale < 1.6;
+    final stackedLabel = scale >= 1.3;
 
     return RepaintBoundary(
       child: SizedBox(
@@ -79,7 +80,7 @@ class FloatingTabBar extends StatelessWidget {
             shape: StadiumBorder(
               side: BorderSide(
                 color: colors.outlineVariant.withOpacity(0.34),
-                width: 0.7,
+                width: 1,
               ),
             ),
             child: Padding(
@@ -92,7 +93,7 @@ class FloatingTabBar extends StatelessWidget {
                         key: ValueKey('floating-tab-$index'),
                         destination: destinations[index],
                         selected: selectedIndex == index,
-                        showLabel: showSelectedText,
+                        stackedLabel: stackedLabel,
                         colorScheme: colors,
                         onPressed: () => onDestinationSelected(index),
                       ),
@@ -112,14 +113,14 @@ class _DockDestination extends StatelessWidget {
     super.key,
     required this.destination,
     required this.selected,
-    required this.showLabel,
+    required this.stackedLabel,
     required this.colorScheme,
     required this.onPressed,
   });
 
   final NavigationDestination destination;
   final bool selected;
-  final bool showLabel;
+  final bool stackedLabel;
   final ColorScheme colorScheme;
   final VoidCallback onPressed;
 
@@ -133,16 +134,16 @@ class _DockDestination extends StatelessWidget {
           child: Tooltip(
             message: destination.label,
             child: Material(
-              color: selected
-                  ? colorScheme.primaryContainer
-                  : Colors.transparent,
+              color:
+                  selected ? colorScheme.primaryContainer : Colors.transparent,
               shape: const StadiumBorder(),
               child: InkWell(
                 key: ValueKey('floating-tab-hit-${destination.label}'),
                 onTap: onPressed,
                 customBorder: const StadiumBorder(),
                 child: SizedBox.expand(
-                  child: Row(
+                  child: Flex(
+                    direction: stackedLabel ? Axis.vertical : Axis.horizontal,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       IconTheme(
@@ -156,8 +157,10 @@ class _DockDestination extends StatelessWidget {
                             ? destination.selectedIcon ?? destination.icon
                             : destination.icon,
                       ),
-                      if (selected && showLabel) ...[
-                        const SizedBox(width: 5),
+                      if (selected) ...[
+                        SizedBox(
+                            width: stackedLabel ? 0 : 5,
+                            height: stackedLabel ? 2 : 0),
                         Flexible(
                           child: Text(
                             destination.label,
