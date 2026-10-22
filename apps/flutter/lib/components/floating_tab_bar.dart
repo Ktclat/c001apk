@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+/// A root page replaced its content (including a transition to an empty list).
+/// Restore navigation without treating a programmatic jump as user scrolling.
+class RootNavigationContentChanged extends Notification {
+  const RootNavigationContentChanged();
+}
+
 /// Scroll clearance for content inside the root navigation. Only scrolling
 /// content and floating action buttons use the inset; the page can paint
 /// normally beneath the compact navigation dock.
@@ -18,6 +24,14 @@ class FloatingNavigationInset extends InheritedWidget {
           ?.bottom ??
       0;
 
+  /// Total trailing scroll clearance, including the system bottom inset once.
+  /// Non-overlay routes still need their ordinary system safe-area padding.
+  static double scrollPaddingOf(BuildContext context) {
+    final overlay = of(context);
+    final system = MediaQuery.paddingOf(context).bottom;
+    return overlay > system ? overlay : system;
+  }
+
   @override
   bool updateShouldNotify(FloatingNavigationInset oldWidget) =>
       bottom != oldWidget.bottom;
@@ -33,6 +47,7 @@ class FloatingTabBar extends StatefulWidget {
     required this.selectedIndex,
     required this.onDestinationSelected,
     required this.height,
+    this.dockWidth = width,
   });
 
   static const double width = 268;
@@ -42,6 +57,15 @@ class FloatingTabBar extends StatefulWidget {
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
   final double height;
+  final double dockWidth;
+
+  /// Grow only for larger labels, never to the full screen width. The caller
+  /// provides usable width after safe insets and horizontal breathing room.
+  static double widthFor(BuildContext context, double availableWidth) {
+    final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+    final preferred = scale >= 1.3 ? 320.0 : width;
+    return availableWidth.clamp(0.0, preferred);
+  }
 
   /// The entire dock stays smaller than an ordinary Material bottom bar.
   /// Each of the three destinations still has an accessible 48dp hit target.
@@ -97,7 +121,7 @@ class _FloatingTabBarState extends State<FloatingTabBar>
     final colors = Theme.of(context).colorScheme;
     return RepaintBoundary(
       child: SizedBox(
-        width: FloatingTabBar.width,
+        width: widget.dockWidth,
         height: widget.height,
         child: DecoratedBox(
           decoration: BoxDecoration(

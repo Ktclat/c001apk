@@ -755,19 +755,26 @@ void main() {
           const FakeViewPadding(left: 32, right: 24, bottom: 24);
       await tester.pumpAndSettle();
       await capture('landscape-safe-insets');
-      expect(find.byType(NavigationRail), findsOneWidget);
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(dock, findsOneWidget);
       await tester.drag(list, const Offset(0, -100));
       await tester.pumpAndSettle();
       tester.view.physicalSize = const Size(600, 850);
       await tester.pumpAndSettle();
-      expect(find.byType(NavigationRail), findsOneWidget);
-      await capture('portrait-600-rail');
+      expect(find.byType(NavigationRail), findsNothing);
+      expect(dock, findsOneWidget);
+      await capture('portrait-600-overlay');
+      // Returning to content top restores a hidden dock after resizing.
+      final scrollable = tester.state<ScrollableState>(
+          find.descendant(of: list, matching: find.byType(Scrollable)).first);
+      scrollable.position.jumpTo(0);
+      await tester.pumpAndSettle();
       tester.view.physicalSize = const Size(390, 850);
       tester.view.padding = const FakeViewPadding(bottom: 24);
       tester.view.viewPadding = const FakeViewPadding(bottom: 24);
       await tester.pumpAndSettle();
       expect(opacity(), 1);
-      await capture('rail-return-portrait');
+      await capture('wide-return-portrait');
       await tester.pumpWidget(const SizedBox.shrink());
       Get.reset();
       GlobalData().isLogin = true;

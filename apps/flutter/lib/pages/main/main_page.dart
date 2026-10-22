@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:android_intent_plus/android_intent.dart';
 import 'package:android_intent_plus/flag.dart';
@@ -42,6 +43,7 @@ class _MainPageState extends State<MainPage>
   bool _accessibleNavigation = false;
   bool _usingRail = false;
   bool _reducedMotion = false;
+  Size? _navigationWindow;
   // Translate only the incoming content. No outgoing feed, alpha layer, or
   // intermediate root page participates in this short navigation transition.
   late final AnimationController _pageSwitch = AnimationController(
@@ -228,17 +230,26 @@ class _MainPageState extends State<MainPage>
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : LayoutBuilder(
                 builder: (context, constraints) {
-                  // Tablets should keep the navigation rail even when held
-                  // upright; orientation alone is not sufficient.
-                  final useRail = constraints.maxWidth >= 600 ||
-                      constraints.maxWidth >= constraints.maxHeight;
+                  // Floating mode stays an overlay across window shapes.
+                  // Only classic navigation switches to a rail.
+                  final media = MediaQuery.of(context);
+                  if (_navigationWindow != constraints.biggest) {
+                    _navigationWindow = constraints.biggest;
+                    _userScrollActive = false;
+                    _pageSwitch.value = 1;
+                    _revealDock();
+                  }
+                  final safeWidth =
+                      constraints.maxWidth - media.viewPadding.horizontal;
+                  final useRail = !GStorage.floatingTabBar &&
+                      (constraints.maxWidth >= 600 ||
+                          constraints.maxWidth >= constraints.maxHeight);
                   final keyboardOpen =
                       MediaQuery.viewInsetsOf(context).bottom > 0;
                   // Hide bottom navigation while typing to avoid covering
                   // chat, search and reply input fields.
                   final floating =
                       !useRail && !keyboardOpen && GStorage.floatingTabBar;
-                  final media = MediaQuery.of(context);
                   final accessible = media.accessibleNavigation;
                   final reduceMotion = media.disableAnimations || accessible;
                   if (_usingRail != useRail || _reducedMotion != reduceMotion) {
@@ -256,9 +267,12 @@ class _MainPageState extends State<MainPage>
                     _pageSwitch.value = 1;
                     _revealDock();
                   }
-                  final safeBottom = media.viewPadding.bottom;
+                  final safeBottom = math.max(media.viewPadding.bottom,
+                      media.systemGestureInsets.bottom);
                   final bottomGap = constraints.maxHeight < 600 ? 8.0 : 12.0;
-                  final sideInset = constraints.maxWidth < 340 ? 8.0 : 16.0;
+                  const sideInset = 16.0;
+                  final dockWidth = FloatingTabBar.widthFor(
+                      context, safeWidth - 2 * sideInset);
                   final dockHeight = FloatingTabBar.heightFor(context);
                   final dockBottom = bottomGap + safeBottom;
                   // Keep scroll content full-bleed behind the floating bar,
@@ -273,57 +287,73 @@ class _MainPageState extends State<MainPage>
                         Positioned.fill(
                           child: FloatingNavigationInset(
                             bottom: scrollClearance,
-                            child: Row(
-                              children: [
-                                if (useRail)
-                                  StreamBuilder<int>(
-                                    initialData: _selectedIndex,
-                                    stream: _indexSctream.stream,
-                                    builder: (_, snapshot) => NavigationRail(
-                                      destinations: railDestinations,
-                                      selectedIndex: snapshot.data ?? 0,
-                                      onDestinationSelected:
-                                          onDestinationSelected,
-                                    ),
-                                  ),
-                                Expanded(
-                                  child: AnimatedBuilder(
-                                    animation: _pageSettle,
-                                    // A stable child keeps animation ticks out
-                                    // of the PageView/feed build and layout.
-                                    child: RepaintBoundary(
-                                      child: PageView(
-                                        physics:
-                                            const NeverScrollableScrollPhysics(),
-                                        controller: _contrller,
-                                        children: [
-                                          for (var index = 0;
-                                              index < pages.length;
-                                              index++)
-                                            NotificationListener<
-                                                ScrollNotification>(
-                                              onNotification: (notification) =>
-                                                  _handleRootScroll(
-                                                      index, notification),
-                                              child: pages[index],
-                                            ),
-                                        ],
+                            child: SafeArea(
+                              top: false,
+                              bottom: false,
+                              child: Row(
+                                children: [
+                                  if (useRail)
+                                    StreamBuilder<int>(
+                                      initialData: _selectedIndex,
+                                      stream: _indexSctream.stream,
+                                      builder: (_, snapshot) => NavigationRail(
+                                        destinations: railDestinations,
+                                        selectedIndex: snapshot.data ?? 0,
+                                        onDestinationSelected:
+                                            onDestinationSelected,
                                       ),
                                     ),
-                                    builder: (context, child) =>
-                                        Transform.translate(
-                                      key: const ValueKey(
-                                          'root-page-transition'),
-                                      offset: Offset(
-                                          0,
-                                          reduceMotion
-                                              ? 0
-                                              : 4 * (1 - _pageSettle.value)),
-                                      child: child,
+                                  Expanded(
+                                    child: AnimatedBuilder(
+                                      animation: _pageSettle,
+                                      // A stable child keeps animation ticks out
+                                      // of the PageView/feed build and layout.
+                                      child: RepaintBoundary(
+                                        child: PageView(
+                                          physics:
+                                              const NeverScrollableScrollPhysics(),
+                                          controller: _contrller,
+                                          children: [
+                                            for (var index = 0;
+                                                index < pages.length;
+                                                index++)
+                                              NotificationListener<
+                                                  ScrollNotification>(
+                                                onNotification:
+                                                    (notification) =>
+                                                        _handleRootScroll(index,
+                                                            notification),
+                                                child: NotificationListener<
+                                                    RootNavigationContentChanged>(
+                                                  onNotification: (_) {
+                                                    if (index ==
+                                                        _selectedIndex) {
+                                                      _userScrollActive = false;
+                                                      _revealDock();
+                                                    }
+                                                    return false;
+                                                  },
+                                                  child: pages[index],
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                      builder: (context, child) =>
+                                          Transform.translate(
+                                        key: const ValueKey(
+                                            'root-page-transition'),
+                                        offset: Offset(
+                                            0,
+                                            reduceMotion
+                                                ? 0
+                                                : 4 * (1 - _pageSettle.value)),
+                                        child: child,
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -333,8 +363,8 @@ class _MainPageState extends State<MainPage>
                             right: media.viewPadding.right,
                             bottom: dockBottom,
                             child: Padding(
-                              padding:
-                                  EdgeInsets.symmetric(horizontal: sideInset),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: sideInset),
                               child: Center(
                                 heightFactor: 1,
                                 child: ValueListenableBuilder<bool>(
@@ -342,12 +372,13 @@ class _MainPageState extends State<MainPage>
                                   // Keep the actual dock subtree intact while
                                   // animating visibility: avoid feed rebuilds.
                                   child: SizedBox(
-                                    width: FloatingTabBar.width,
+                                    width: dockWidth,
                                     child: StreamBuilder<int>(
                                       initialData: _selectedIndex,
                                       stream: _indexSctream.stream,
                                       builder: (_, snapshot) => FloatingTabBar(
                                         height: dockHeight,
+                                        dockWidth: dockWidth,
                                         destinations: barDestinations,
                                         selectedIndex: snapshot.data ?? 0,
                                         onDestinationSelected:

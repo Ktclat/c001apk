@@ -54,7 +54,7 @@ class _HomeTopicPageState extends State<HomeTopicPage>
               flex: 22,
               child: ListView.builder(
                 padding: EdgeInsets.only(
-                    bottom: FloatingNavigationInset.of(context)),
+                    bottom: FloatingNavigationInset.scrollPaddingOf(context)),
                 physics: const AlwaysScrollableScrollPhysics(
                   parent: BouncingScrollPhysics(),
                 ),
@@ -70,6 +70,7 @@ class _HomeTopicPageState extends State<HomeTopicPage>
                   return InkWell(
                     onTap: () {
                       _homeTopicController.currentIndex.value = index;
+                      const RootNavigationContentChanged().dispatch(context);
                       _controller.jumpToPage(index);
                     },
                     child: Ink(
@@ -80,9 +81,8 @@ class _HomeTopicPageState extends State<HomeTopicPage>
                         border: Border(
                           left: BorderSide(
                             width: 3,
-                            color: selected
-                                ? colors.primary
-                                : Colors.transparent,
+                            color:
+                                selected ? colors.primary : Colors.transparent,
                           ),
                         ),
                       ),
@@ -118,15 +118,20 @@ class _HomeTopicPageState extends State<HomeTopicPage>
                   itemCount: widget.tabType == TabType.TOPIC
                       ? data[0].entities!.length
                       : data.length,
-                  itemBuilder: (context, index) => CarouselPage(
-                    isInit: false,
-                    url: widget.tabType == TabType.TOPIC
-                        ? data[0].entities![index].url
-                        : data[index].url,
-                    title: widget.tabType == TabType.TOPIC
-                        ? data[0].entities![index].title
-                        : data[index].title,
-                    isHomeCard: true,
+                  itemBuilder: (context, index) =>
+                      NotificationListener<ScrollNotification>(
+                    onNotification: (_) =>
+                        index != _homeTopicController.currentIndex.value,
+                    child: CarouselPage(
+                      isInit: false,
+                      url: widget.tabType == TabType.TOPIC
+                          ? data[0].entities![index].url
+                          : data[index].url,
+                      title: widget.tabType == TabType.TOPIC
+                          ? data[0].entities![index].title
+                          : data[index].title,
+                      isHomeCard: true,
+                    ),
                   ),
                 ),
               ),

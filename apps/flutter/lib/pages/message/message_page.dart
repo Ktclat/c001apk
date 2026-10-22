@@ -76,92 +76,81 @@ class _MessagePageState extends State<MessagePage>
             icon: const Icon(Icons.settings_outlined),
             tooltip: '设置'),
       ]),
-      body: Column(
-        children: [
-          const SizedBox(height: 10),
-          Obx(
-            () => MessageHeaderCard(
-              userInfo: _messageController.userInfo.value,
-              onLogin: () => Get.toNamed('/login'),
-            ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          if (GlobalData().isLogin) await _onRefresh();
+        },
+        child: CustomScrollView(
+          physics: const AlwaysScrollableScrollPhysics(
+            parent: BouncingScrollPhysics(),
           ),
-          const SizedBox(height: 10),
-          const Divider(height: 1),
-          Expanded(
-            child: RefreshIndicator(
-              onRefresh: () async {
-                if (GlobalData().isLogin) {
-                  await _onRefresh();
-                } else {
-                  return Future.value();
-                }
-              },
-              child: CustomScrollView(
-                physics: const AlwaysScrollableScrollPhysics(
-                  parent: BouncingScrollPhysics(),
-                ),
-                slivers: [
-                  SliverPadding(
-                    padding: EdgeInsets.fromLTRB(
-                        10, 10, 10, 10 + FloatingNavigationInset.of(context)),
-                    sliver: SliverList.separated(
-                      itemCount: GlobalData().isLogin ? 7 : 6,
-                      itemBuilder: (context, itemIndex) {
-                        final index =
-                            itemIndex + (GlobalData().isLogin ? 0 : 1);
-                        if (index == 0) {
-                          return Obx(
-                            () => messageFirstCard(
-                              GlobalData().isLogin,
-                              context,
-                              _messageController.firstList,
-                            ),
-                          );
-                        } else if (index == 1) {
-                          return messageSeconfCard(
-                              GlobalData().isLogin, context);
-                        } else if (index >= 2 && index <= 6) {
-                          return Obx(
-                            () => messageThirdCard(
-                              context,
-                              _backgroundList[index - 2],
-                              _iconList[index - 2],
-                              _titleList[index - 2],
-                              _messageController.thirdList.getOrNull(index - 2),
-                              () {
-                                if (GlobalData().isLogin) {
-                                  Get.toNamed('/notification', arguments: {
-                                    'type': NotificationType.values[index - 2],
-                                    if (index == 6)
-                                      'notificationCount': _messageController
-                                          .notificationCount.value,
-                                    if (index == 6)
-                                      'onNotificationsRead': () =>
-                                          _messageController
-                                              .notificationCount.value = null,
-                                  });
-                                  int? count = _messageController.thirdList
-                                      .getOrNull(index - 2);
-                                  if (count != null && count > 0) {
-                                    _messageController.thirdList[index - 2] =
-                                        null;
-                                  }
-                                }
-                              },
-                            ),
-                          );
-                        }
-                        return const SizedBox();
-                      },
-                      separatorBuilder: (_, index) =>
-                          const SizedBox(height: 10),
-                    ),
-                  ),
-                ],
+          slivers: [
+            // Keep the header in the same scrollable as its actions. A fixed
+            // header can consume the whole viewport in short/large-text windows.
+            SliverToBoxAdapter(
+              child: Column(children: [
+                const SizedBox(height: 10),
+                Obx(() => MessageHeaderCard(
+                      userInfo: _messageController.userInfo.value,
+                      onLogin: () => Get.toNamed('/login'),
+                    )),
+                const SizedBox(height: 10),
+                const Divider(height: 1),
+              ]),
+            ),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(10, 10, 10,
+                  10 + FloatingNavigationInset.scrollPaddingOf(context)),
+              sliver: SliverList.separated(
+                itemCount: GlobalData().isLogin ? 7 : 6,
+                itemBuilder: (context, itemIndex) {
+                  final index = itemIndex + (GlobalData().isLogin ? 0 : 1);
+                  if (index == 0) {
+                    return Obx(
+                      () => messageFirstCard(
+                        GlobalData().isLogin,
+                        context,
+                        _messageController.firstList,
+                      ),
+                    );
+                  } else if (index == 1) {
+                    return messageSeconfCard(GlobalData().isLogin, context);
+                  } else if (index >= 2 && index <= 6) {
+                    return Obx(
+                      () => messageThirdCard(
+                        context,
+                        _backgroundList[index - 2],
+                        _iconList[index - 2],
+                        _titleList[index - 2],
+                        _messageController.thirdList.getOrNull(index - 2),
+                        () {
+                          if (GlobalData().isLogin) {
+                            Get.toNamed('/notification', arguments: {
+                              'type': NotificationType.values[index - 2],
+                              if (index == 6)
+                                'notificationCount':
+                                    _messageController.notificationCount.value,
+                              if (index == 6)
+                                'onNotificationsRead': () => _messageController
+                                    .notificationCount.value = null,
+                            });
+                            int? count = _messageController.thirdList
+                                .getOrNull(index - 2);
+                            if (count != null && count > 0) {
+                              _messageController.thirdList[index - 2] = null;
+                            }
+                          }
+                        },
+                      ),
+                    );
+                  }
+                  return const SizedBox();
+                },
+                separatorBuilder: (_, index) => const SizedBox(height: 10),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

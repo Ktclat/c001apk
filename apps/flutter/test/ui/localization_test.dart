@@ -210,6 +210,8 @@ void main() {
 
   tearDown(() async {
     Get.reset();
+    // A failed assertion must not leak floating mode into later tests.
+    await GStorage.setFloatingTabBar(false);
   });
   tearDownAll(() async {
     await Hive.close();
@@ -392,18 +394,19 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(FloatingTabBar), findsOneWidget);
 
-    // Large portrait tablets also use the rail rather than a huge dock.
+    // Explicit floating mode remains a compact overlay in wide windows too.
     tester.view.physicalSize = const Size(900, 1200);
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(NavigationRail), findsOneWidget);
-    expect(find.byType(FloatingTabBar), findsNothing);
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.byType(FloatingTabBar), findsOneWidget);
+    expect(tester.getSize(find.byType(FloatingTabBar)).width,
+        lessThanOrEqualTo(268));
 
-    // Tablets/landscape retain the original NavigationRail.
     tester.view.physicalSize = const Size(1200, 800);
     await tester.pump(const Duration(milliseconds: 500));
-    expect(find.byType(FloatingTabBar), findsNothing);
-    expect(find.byType(NavigationRail), findsOneWidget);
-    expect(tester.widget<NavigationRail>(find.byType(NavigationRail))
+    expect(find.byType(NavigationRail), findsNothing);
+    expect(find.byType(FloatingTabBar), findsOneWidget);
+    expect(tester.widget<FloatingTabBar>(find.byType(FloatingTabBar))
         .selectedIndex, 1);
 
     tester.view.physicalSize = const Size(390, 850);
