@@ -12,6 +12,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../components/floating_tab_bar.dart';
 import '../../utils/navigation_diagnostics.dart';
+import '../../utils/floating_navigation_policy.dart';
 import '../../pages/home/return_top_controller.dart';
 import '../../pages/home/home_page.dart';
 import '../../pages/main/main_controller.dart';
@@ -42,6 +43,8 @@ class _MainPageState extends State<MainPage>
   bool _userScrollActive = false;
   bool _floatingActive = false;
   bool _accessibleNavigation = false;
+  FloatingNavigationPolicy _navigationPolicy =
+      FloatingNavigationPolicy.automatic;
   bool _usingRail = false;
   bool _reducedMotion = false;
   Size? _navigationWindow;
@@ -82,12 +85,12 @@ class _MainPageState extends State<MainPage>
           consumed: consumed);
     }
 
-    if (!_floatingActive || _accessibleNavigation || page != _selectedIndex) {
+    final suppression =
+        _navigationPolicy.suppressionReason(_accessibleNavigation);
+    if (!_floatingActive || suppression != null || page != _selectedIndex) {
       record(!_floatingActive
           ? 'floating_inactive'
-          : _accessibleNavigation
-              ? 'accessible_navigation'
-              : 'inactive_root');
+          : suppression ?? 'inactive_root');
       return false;
     }
     if (!tickerEnabled || currentRoute == false) {
@@ -270,8 +273,10 @@ class _MainPageState extends State<MainPage>
         onBackPressed();
       },
       child: ValueListenableBuilder(
-        valueListenable:
-            GStorage.settings.listenable(keys: [SettingsBoxKey.floatingTabBar]),
+        valueListenable: GStorage.settings.listenable(keys: [
+          SettingsBoxKey.floatingTabBar,
+          SettingsBoxKey.floatingNavigationPolicy
+        ]),
         builder: (context, _, __) => _resetting
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : LayoutBuilder(
@@ -297,6 +302,7 @@ class _MainPageState extends State<MainPage>
                   final floating =
                       !useRail && !keyboardOpen && GStorage.floatingTabBar;
                   final accessible = media.accessibleNavigation;
+                  final policy = GStorage.floatingNavigationPolicy;
                   final reduceMotion = media.disableAnimations || accessible;
                   if (_usingRail != useRail || _reducedMotion != reduceMotion) {
                     _usingRail = useRail;
@@ -306,12 +312,14 @@ class _MainPageState extends State<MainPage>
                   // Reset when the dock enters/leaves the layout. This also
                   // prevents rail/IME scrolls from hiding a future portrait dock.
                   if (_floatingActive != floating ||
-                      _accessibleNavigation != accessible) {
+                      _accessibleNavigation != accessible ||
+                      _navigationPolicy != policy) {
                     _userScrollActive = false;
                     _floatingActive = floating;
                     _accessibleNavigation = accessible;
+                    _navigationPolicy = policy;
                     _pageSwitch.value = 1;
-                    _revealDock('mode_or_accessibility_change');
+                    _revealDock('mode_accessibility_or_policy_change');
                   }
                   final safeBottom = math.max(media.viewPadding.bottom,
                       media.systemGestureInsets.bottom);
@@ -330,6 +338,8 @@ class _MainPageState extends State<MainPage>
                   NavigationDiagnostics.instance.rootConfiguration(
                       media, constraints.biggest,
                       floatingSetting: GStorage.floatingTabBar,
+                      policy: policy.name,
+                      policySuppression: policy.suppressionReason(accessible),
                       floatingActive: floating,
                       rail: useRail,
                       selectedRoot: _selectedIndex,

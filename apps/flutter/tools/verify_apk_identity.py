@@ -3,7 +3,7 @@ import re
 import subprocess
 import sys
 
-DIAGNOSTIC_ID = 'io.github.ktclat.c001apk.diagnostic'
+DIAGNOSTIC_ID = 'io.github.ktclat.c001apk.diagnostic.visibility'
 
 
 def application_tree(manifest):
@@ -22,12 +22,15 @@ def application_tree(manifest):
     raise AssertionError('Missing merged application manifest')
 
 
-def validate(badging, manifest):
+def validate(badging, manifest, expected_abi=None):
     package = re.search(r"^package: name='([^']+)'", badging, re.M)
     assert package and package.group(1) == DIAGNOSTIC_ID, 'Wrong diagnostic package'
-    assert "application-label:'c001apk 诊断'" in badging, 'Missing diagnostic launcher label'
+    assert "application-label:'c001apk 显隐验证'" in badging, 'Missing diagnostic launcher label'
     assert re.search(r"versionName='[^']+-diag'", badging), 'Missing diagnostic version suffix'
     assert 'sharedUserId' not in manifest, 'Shared app identity is forbidden'
+    if expected_abi is not None:
+        native = re.search(r'^native-code: (.+)$', badging, re.M)
+        assert native and re.findall(r"'([^']+)'", native.group(1)) == [expected_abi], 'Wrong standalone ABI'
     app = application_tree(manifest)
     assert re.search(r'android:allowBackup[^\n]*0x0\s*$', app, re.M), 'Backup must be disabled'
     for forbidden in ('android.intent.action.VIEW', 'android.intent.category.BROWSABLE', 'android:autoVerify'):
@@ -37,8 +40,9 @@ def validate(badging, manifest):
 
 
 if __name__ == '__main__':
-    aapt, apk = sys.argv[1:]
+    aapt, apk = sys.argv[1:3]
+    expected_abi = sys.argv[3] if len(sys.argv) > 3 else None
     badging = subprocess.check_output([aapt, 'dump', 'badging', apk], text=True)
     manifest = subprocess.check_output([aapt, 'dump', 'xmltree', apk, 'AndroidManifest.xml'], text=True)
-    validate(badging, manifest)
+    validate(badging, manifest, expected_abi)
     print('Verified standalone diagnostic package, label, version suffix and sandbox settings.')

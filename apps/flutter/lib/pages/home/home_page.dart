@@ -116,7 +116,7 @@ class _HomePageState extends State<HomePage>
       appBar: AppBar(
         automaticallyImplyLeading: false,
         leading: NavigationBuildIdentity.diagnostic
-            ? const Center(child: Text('诊断'))
+            ? const Center(child: Text('验证'))
             : null,
         title: TabBar(
           controller: _tabController,

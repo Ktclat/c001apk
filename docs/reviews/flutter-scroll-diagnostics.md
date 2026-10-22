@@ -1,6 +1,6 @@
 # Flutter Home feed scroll diagnostics
 
-This revision adds observation, not a claim that the reported physical-device
+This diagnostics component adds observation, not itself a claim that the reported physical-device
 failure is fixed. The reported route is Home → 动态. Previous Flutter engine
 widget tests used offline synthetic feed data on Linux, not the user's phone.
 
@@ -12,7 +12,9 @@ widget tests used offline synthetic feed data on Linux, not the user's phone.
   Moving back by 20 logical pixels reveals it; reaching the top reveals it.
   The old settings wording “下滑收起、上滑出现” was ambiguous about finger direction
   and is replaced with an explicit description.
-- `MediaQuery.accessibleNavigation` intentionally keeps navigation visible.
+- `MediaQuery.accessibleNavigation` intentionally keeps navigation visible in the
+  default Automatic policy. An explicit app-only scrolling-hide choice can override
+  this visibility guard; see `flutter-navigation-policy.md`.
   `disableAnimations` alone does not disable hiding. A user's accessibility
   configuration cannot be inferred from this code or from a generic enabled
   accessibility service. Do not ask users to disable needed accessibility.
@@ -81,9 +83,13 @@ behavior remains a separate acceptance gate.
 
 ## Standalone diagnostic APK
 
-The updated CI is configured to build `c001apk-android-diagnostic-profile`, labeled `c001apk 诊断`,
-package `io.github.ktclat.c001apk.diagnostic`, version suffix `-diag`. It can
-coexist with `io.github.ktclat.c001apk`; it is not an update to that package.
+CI74 produced `c001apk-android-diagnostic-profile`, labeled `c001apk 诊断`,
+package `io.github.ktclat.c001apk.diagnostic`, version suffix `-diag`.
+The subsequent visibility-policy validation build uses the distinct
+`io.github.ktclat.c001apk.diagnostic.visibility` package, labeled `c001apk 显隐验证`,
+with artifact `c001apk-android-visibility-profile` (plus an arm64-only artifact),
+so neither existing app needs to be removed. These are separate test apps, not
+updates to the original production package or to one another.
 Normal debug/profile/release package selection remains unchanged by default.
 No persistent key is generated. The diagnostic package uses its own Android
 sandbox, disables backup, has no shared UID, omits external deep links, requests

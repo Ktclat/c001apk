@@ -15,6 +15,7 @@ import '../utils/device_util.dart';
 import '../utils/global_data.dart';
 import '../utils/token_util.dart';
 import 'storage_path.dart';
+import 'floating_navigation_policy.dart';
 import 'app_theme.dart';
 import 'reading_preset.dart';
 import 'device_profile.dart';
@@ -259,8 +260,7 @@ class GStorage {
     String? manualShuzlmId,
   }) async {
     final checked = ManualDeviceInfo.validate(profile);
-    final parsedId = manualShuzlmId == null ||
-            manualShuzlmId.trim().isEmpty
+    final parsedId = manualShuzlmId == null || manualShuzlmId.trim().isEmpty
         ? null
         : OfficialDeviceIdentity.parseManual(manualShuzlmId);
     final fields = _deviceFields();
@@ -335,8 +335,8 @@ class GStorage {
     settings.put(SettingsBoxKey.szlmId, value);
   }
 
-  static AppFontChoice get fontChoice => AppFontChoice.fromStorage(
-      settings.get(SettingsBoxKey.fontChoice));
+  static AppFontChoice get fontChoice =>
+      AppFontChoice.fromStorage(settings.get(SettingsBoxKey.fontChoice));
 
   static Future<void> setFontChoice(AppFontChoice value) =>
       settings.put(SettingsBoxKey.fontChoice, value.index);
@@ -353,6 +353,14 @@ class GStorage {
 
   static Future<void> setFloatingTabBar(bool enabled) =>
       settings.put(SettingsBoxKey.floatingTabBar, enabled);
+
+  static FloatingNavigationPolicy get floatingNavigationPolicy =>
+      FloatingNavigationPolicy.fromStorage(
+          settings.get(SettingsBoxKey.floatingNavigationPolicy));
+
+  static Future<void> setFloatingNavigationPolicy(
+          FloatingNavigationPolicy value) =>
+      settings.put(SettingsBoxKey.floatingNavigationPolicy, value.storageValue);
 
   static double get fontScale {
     return settings.get(SettingsBoxKey.fontScale, defaultValue: 1.0);
@@ -606,6 +614,7 @@ class SettingsBoxKey {
       fontChoice = 'fontChoice',
       readingPreset = 'readingPreset',
       floatingTabBar = 'floatingTabBar',
+      floatingNavigationPolicy = 'floatingNavigationPolicy',
       typographyV2 = 'typographyV2Migrated',
       followType = 'followType',
       imageQuality = 'imageQuality',

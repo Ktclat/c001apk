@@ -23,7 +23,7 @@ jobs:
   checks:
     name: Flutter analysis and regression tests
     runs-on: ubuntu-22.04
-    timeout-minutes: 15
+    timeout-minutes: 25
     defaults:
       run:
         working-directory: apps/flutter
@@ -48,9 +48,9 @@ jobs:
       - name: Account manager widget regressions
         run: timeout 150s flutter test --no-pub test/ui/accounts_page_test.dart --reporter expanded
       - name: Offline regression tests
-        run: timeout 420s flutter test --no-pub --reporter expanded
+        run: timeout 900s flutter test --no-pub --reporter expanded
       - name: Standalone diagnostic widget regressions
-        run: timeout 180s flutter test --no-pub --dart-define=APP_DIAGNOSTIC=true test/ui/navigation_adaptive_test.dart --plain-name diagnostics --reporter expanded
+        run: timeout 300s flutter test --no-pub --dart-define=APP_DIAGNOSTIC=true test/ui/navigation_adaptive_test.dart --name 'policy|diagnostics' --reporter expanded
       - name: Upload synthetic typography review
         uses: actions/upload-artifact@v7.0.2
         with:
@@ -143,7 +143,32 @@ jobs:
       - name: Upload standalone diagnostic APK
         uses: actions/upload-artifact@v7.0.2
         with:
-          name: c001apk-android-diagnostic-profile
+          name: c001apk-android-visibility-profile
           path: apps/flutter/build/diagnostic/app-diagnostic-profile.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Compile arm64 standalone visibility profile APK
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BUILD_RUN: ${{ github.run_number }}
+          ORG_GRADLE_PROJECT_diagnosticBuild: 'true'
+        run: >-
+          flutter build apk --profile --no-pub --split-per-abi --target-platform android-arm64
+          --dart-define=APP_DIAGNOSTIC=true
+          --dart-define=APP_BUILD_SHA="$(git rev-parse HEAD)"
+          --dart-define=APP_SOURCE_SHA="$SOURCE_SHA"
+          --dart-define=APP_BUILD_RUN="$BUILD_RUN"
+      - name: Verify arm64 visibility APK before upload
+        run: |
+          python3 tools/verify_apk_identity.py "$ANDROID_HOME/build-tools/34.0.0/aapt" build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk arm64-v8a
+          test "$(stat -c%s build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk)" -lt 50000000
+          mkdir -p build/visibility-arm64
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk build/visibility-arm64/app-visibility-arm64-profile.apk
+      - name: Upload arm64 standalone visibility APK
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: c001apk-android-visibility-arm64-profile
+          path: apps/flutter/build/visibility-arm64/app-visibility-arm64-profile.apk
           if-no-files-found: error
           retention-days: 14

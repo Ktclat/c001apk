@@ -17,7 +17,7 @@ class NavigationBuildIdentity {
           ? 'profile'
           : 'debug';
   static String get label =>
-      '${diagnostic ? '独立诊断版 · ' : ''}${source != 'unidentified-local' && source.length > 12 ? source.substring(0, 12) : source} · $mode · CI $run';
+      '${diagnostic ? '显隐验证版 · ' : ''}${source != 'unidentified-local' && source.length > 12 ? source.substring(0, 12) : source} · $mode · CI $run';
 }
 
 /// Opt-in, bounded, process-local diagnostics. Never records content, account
@@ -53,6 +53,8 @@ class NavigationDiagnostics {
     MediaQueryData media,
     Size window, {
     required bool floatingSetting,
+    required String policy,
+    required String? policySuppression,
     required bool floatingActive,
     required bool rail,
     required int selectedRoot,
@@ -71,6 +73,8 @@ class NavigationDiagnostics {
       'accessibleNavigation': media.accessibleNavigation,
       'disableAnimations': media.disableAnimations,
       'floatingSetting': floatingSetting,
+      'floatingNavigationPolicy': policy,
+      'policySuppressionReason': policySuppression,
       'floatingActive': floatingActive,
       'classicRail': rail,
       'selectedRoot': selectedRoot,

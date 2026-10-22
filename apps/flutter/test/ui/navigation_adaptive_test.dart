@@ -11,6 +11,8 @@ import 'package:c001apk_flutter/pages/carousel/carousel_controller.dart';
 import 'package:c001apk_flutter/components/cards/feed_card.dart';
 import 'dart:ui' as ui;
 import 'package:c001apk_flutter/utils/navigation_diagnostics.dart';
+import 'package:c001apk_flutter/utils/floating_navigation_policy.dart';
+import 'package:c001apk_flutter/components/settings/floating_navigation_policy_tile.dart';
 import 'package:c001apk_flutter/components/update_check_tile.dart';
 import 'package:c001apk_flutter/pages/settings/navigation_diagnostics_page.dart';
 import 'package:c001apk_flutter/main.dart';
@@ -218,6 +220,11 @@ void main() {
                 call.method == 'getAll' ? <String, Object>{} : true);
   });
 
+  setUp(() async {
+    await GStorage.setFloatingNavigationPolicy(
+        FloatingNavigationPolicy.automatic);
+  });
+
   tearDown(() async {
     NavigationDiagnostics.instance.clear();
     Get.reset();
@@ -329,6 +336,245 @@ void main() {
     expect(recorder.environment['selectedRoot'], 2,
         reason: 'Root selection does not depend on a parent rebuild');
     await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets(
+      'reported Xiaomi window policy preserves accessibility default and permits explicit touch hide',
+      (tester) async {
+    tester.view.devicePixelRatio = 3.25;
+    tester.view.physicalSize = const Size(1200, 2670);
+    tester.view.viewPadding = const FakeViewPadding(top: 140);
+    tester.view.padding = const FakeViewPadding(top: 140);
+    tester.view.systemGestureInsets = const FakeViewPadding(top: 179);
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(accessibleNavigation: true);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewPadding);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetSystemGestureInsets);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    await finishFixtureIo(tester, () async {
+      await GStorage.settings.delete(SettingsBoxKey.floatingNavigationPolicy);
+      await GStorage.setFloatingTabBar(true);
+    });
+    expect(
+        GStorage.floatingNavigationPolicy, FloatingNavigationPolicy.automatic);
+    expect(FloatingNavigationPolicy.fromStorage(999),
+        FloatingNavigationPolicy.automatic);
+    final key = GlobalKey();
+    await tester
+        .pumpWidget(RepaintBoundary(key: key, child: const C001APKAPP()));
+    await tester.pumpAndSettle();
+    final feed = Get.find<HomeFeedController>(tag: 'FEED');
+    feed.isEnd = true;
+    feed.loadingState.value = Success(List.generate(
+        60,
+        (i) => Datum.fromJson({
+              ...EmptyGuestAdapter.feed,
+              'id': 1000 + i,
+              'message': 'Synthetic offline policy regression $i'
+            })));
+    await tester.pumpAndSettle();
+    final list = find.descendant(
+        of: find.byWidgetPredicate(
+            (w) => w is HomeFeedPage && w.tabType == TabType.FEED),
+        matching: find.byType(ListView));
+    final dock = find.byType(FloatingTabBar);
+    Finder ancestor(Type type) =>
+        find.ancestor(of: dock, matching: find.byType(type));
+    double opacity() =>
+        tester.widget<AnimatedOpacity>(ancestor(AnimatedOpacity)).opacity;
+    Future<void> capture(String name) =>
+        captureRoot(tester, key, 'build/review/policy/$name.png');
+    final recorder = NavigationDiagnostics.instance;
+    recorder.start();
+    await tester.drag(list, const Offset(0, -220));
+    await tester.pumpAndSettle();
+    expect(feed.scrollController!.offset, greaterThan(28));
+    expect(opacity(), 1);
+    expect(
+        recorder.counts['root.vertical.accessible_navigation'], greaterThan(0));
+    expect(recorder.environment['floatingNavigationPolicy'], 'automatic');
+    expect(recorder.environment['rootWindowDp'], [1200 / 3.25, 2670 / 3.25]);
+    await capture('00-automatic-accessibility-visible');
+
+    await finishFixtureIo(
+        tester,
+        () => GStorage.setFloatingNavigationPolicy(
+            FloatingNavigationPolicy.hideOnScroll));
+    await tester.pumpAndSettle();
+    expect(GStorage.settings.get(SettingsBoxKey.floatingNavigationPolicy), 1);
+    expect(recorder.environment['accessibleNavigation'], true);
+    expect(recorder.environment['floatingNavigationPolicy'], 'hideOnScroll');
+    expect(recorder.environment['policySuppressionReason'], isNull);
+    feed.scrollController!.jumpTo(0);
+    await tester.pumpAndSettle();
+    recorder.start();
+    final gesture = await tester.startGesture(tester.getCenter(list));
+    await tester.pump(const Duration(milliseconds: 16));
+    await gesture.moveBy(const Offset(0, -20),
+        timeStamp: const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+    await gesture.moveBy(const Offset(0, -10),
+        timeStamp: const Duration(milliseconds: 24));
+    await gesture.moveBy(const Offset(0, -10),
+        timeStamp: const Duration(milliseconds: 32));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(feed.scrollController!.offset, lessThan(28));
+    expect(opacity(), 1);
+    await capture('01-explicit-short-touch-visible');
+    await gesture.up(timeStamp: const Duration(milliseconds: 40));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(feed.scrollController!.offset, greaterThan(28));
+    expect(opacity(), 0,
+        reason:
+            'User-started ballistic distance hides despite accessibility flag only after explicit choice');
+    expect(tester.widget<AnimatedOpacity>(ancestor(AnimatedOpacity)).duration,
+        Duration.zero);
+    expect(tester.widget<IgnorePointer>(ancestor(IgnorePointer).first).ignoring,
+        true);
+    expect(
+        tester
+            .widget<ExcludeSemantics>(ancestor(ExcludeSemantics).first)
+            .excluding,
+        true);
+    expect(tester.widget<ExcludeFocus>(ancestor(ExcludeFocus).first).excluding,
+        true);
+    expect(find.byKey(const ValueKey('floating-tab-hit-我的')).hitTestable(),
+        findsNothing);
+    await tester.pumpAndSettle();
+    await capture('02-explicit-ballistic-hidden');
+    expect(recorder.counts['root.vertical.hide_threshold'], greaterThan(0));
+    expect(recorder.counts['feed.FEED.pointer.move'], greaterThan(0));
+    expect(recorder.counts['root.vertical.accessible_navigation'], isNull);
+    await tester.drag(list, const Offset(0, 100));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    expect(
+        tester
+            .getSize(find.byKey(const ValueKey('floating-tab-hit-我的')))
+            .height,
+        greaterThanOrEqualTo(48));
+    await capture('03-reverse-revealed');
+    feed.scrollController!.jumpTo(0);
+    await tester.pumpAndSettle();
+    recorder.start();
+    feed.scrollController!.jumpTo(300);
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    expect(recorder.counts['root.vertical.no_user_session'], greaterThan(0));
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    await tester.tap(find.text('热门'));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    await tester.tap(find.text('动态'));
+    await tester.pumpAndSettle();
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    await finishFixtureIo(
+        tester,
+        () => GStorage.setFloatingNavigationPolicy(
+            FloatingNavigationPolicy.automatic));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1,
+        reason: 'Returning to Auto restores accessibility protection');
+    await finishFixtureIo(
+        tester,
+        () => GStorage.setFloatingNavigationPolicy(
+            FloatingNavigationPolicy.hideOnScroll));
+    await tester.pumpAndSettle();
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    await finishFixtureIo(
+        tester,
+        () => GStorage.setFloatingNavigationPolicy(
+            FloatingNavigationPolicy.alwaysVisible));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1,
+        reason: 'Policy transition reveals and clears old session');
+    recorder.start();
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+    expect(
+        recorder.counts['root.vertical.policy_always_visible'], greaterThan(0));
+    await capture('04-always-visible');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('policy selector requires explicit app choice and persists it',
+      (tester) async {
+    await finishFixtureIo(
+        tester,
+        () => GStorage.setFloatingNavigationPolicy(
+            FloatingNavigationPolicy.automatic));
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(accessibleNavigation: true);
+    addTearDown(tester.platformDispatcher.clearAccessibilityFeaturesTestValue);
+    tester.view.devicePixelRatio = 3.25;
+    tester.view.physicalSize = const Size(1200, 2670);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    final key = GlobalKey();
+    await tester.pumpWidget(RepaintBoundary(
+        key: key,
+        child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(fontFamily: AppFontChoice.bundledFontFamily),
+            home: const Scaffold(body: FloatingNavigationPolicyTile()))));
+    await tester.tap(find.text('悬浮导航隐藏方式'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('系统当前报告无障碍导航需求'), findsOneWidget);
+    expect(
+        GStorage.floatingNavigationPolicy, FloatingNavigationPolicy.automatic);
+    await captureRoot(
+        tester, key, 'build/review/policy/05-explicit-policy-picker.png');
+    await tester.tap(find.text('滚动时隐藏'));
+    await finishFixtureIo(tester, () => GStorage.settings.flush());
+    await tester.pumpAndSettle();
+    expect(GStorage.floatingNavigationPolicy,
+        FloatingNavigationPolicy.hideOnScroll);
+    expect(tester.platformDispatcher.accessibilityFeatures.accessibleNavigation,
+        true);
+    expect(find.text('滚动时隐藏'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(480, 240);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    await tester.pumpWidget(RepaintBoundary(
+        key: key,
+        child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: ThemeData(fontFamily: AppFontChoice.bundledFontFamily),
+            home: const Scaffold(body: FloatingNavigationPolicyTile()))));
+    await tester.pumpAndSettle();
+    expect(find.text('滚动时隐藏'), findsOneWidget,
+        reason: 'Recreated settings widget reads persisted choice');
+    await tester.tap(find.text('悬浮导航隐藏方式'));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('始终显示'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await captureRoot(
+        tester, key, 'build/review/policy/06-short-font2-policy-picker.png');
+    await tester.tap(find.text('始终显示'));
+    await finishFixtureIo(tester, () => GStorage.settings.flush());
+    await tester.pumpAndSettle();
+    expect(GStorage.floatingNavigationPolicy,
+        FloatingNavigationPolicy.alwaysVisible);
+    await tester.tap(find.text('悬浮导航隐藏方式'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('取消'));
+    await tester.pumpAndSettle();
+    expect(GStorage.floatingNavigationPolicy,
+        FloatingNavigationPolicy.alwaysVisible);
   });
 
   testWidgets('diagnostics UI is opt-in and copies only on explicit tap',
