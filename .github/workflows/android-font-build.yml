@@ -50,18 +50,26 @@ jobs:
       - name: Offline regression tests
         env:
           ICON_GRID_EVIDENCE: build/review/icon-grid
+          GALLERY_EVIDENCE: build/review/gallery
         run: |
-          mkdir -p "$ICON_GRID_EVIDENCE/before" "$ICON_GRID_EVIDENCE/after"
-          record_icon_grid_evidence() {
+          mkdir -p "$ICON_GRID_EVIDENCE/before" "$ICON_GRID_EVIDENCE/after" "$GALLERY_EVIDENCE"
+          record_review_evidence() {
             result=$?
             set +e
-            if [ -n "$(find "$ICON_GRID_EVIDENCE/after" -type f -name '*.png' -print -quit)" ]; then
-              printf '%s\n' "$result" > "$ICON_GRID_EVIDENCE/after/test-exit.txt"
-              find "$ICON_GRID_EVIDENCE/after" -type f -name '*.png' -exec sha256sum {} + > "$ICON_GRID_EVIDENCE/after/frames.sha256"
+            for directory in "$ICON_GRID_EVIDENCE/after" "$GALLERY_EVIDENCE"; do
+              if [ -n "$(find "$directory" -type f -name '*.png' -print -quit)" ]; then
+                printf '%s\n' "$result" > "$directory/test-exit.txt"
+                find "$directory" -type f -name '*.png' -exec sha256sum {} + > "$directory/frames.sha256"
+              fi
+            done
+            if [ -n "$(find "$GALLERY_EVIDENCE" -type f -name '*.png' -print -quit)" ]; then
+              git rev-parse HEAD > "$GALLERY_EVIDENCE/source-commit.txt"
+              sha256sum lib/components/imageview.dart lib/components/retryable_media_image.dart lib/pages/others/imageview_page.dart test/ui/gallery_states_test.dart test/ui/gallery_test_support.dart test/fixtures/gallery/* pubspec.lock > "$GALLERY_EVIDENCE/source.sha256"
+              printf '%s\n' 'timeout 900s flutter test --no-pub --reporter expanded' > "$GALLERY_EVIDENCE/test-command.txt"
             fi
             exit "$result"
           }
-          trap record_icon_grid_evidence EXIT
+          trap record_review_evidence EXIT
           timeout 900s flutter test --no-pub --reporter expanded
       - name: Upload synthetic icon-grid review
         if: always()
@@ -69,6 +77,14 @@ jobs:
         with:
           name: c001apk-icon-grid-review
           path: apps/flutter/build/review/icon-grid/after/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload synthetic gallery review
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: c001apk-gallery-review
+          path: apps/flutter/build/review/gallery/
           if-no-files-found: error
           retention-days: 14
       - name: Standalone diagnostic widget regressions
