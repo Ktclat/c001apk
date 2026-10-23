@@ -51,12 +51,13 @@ jobs:
         env:
           ICON_GRID_EVIDENCE: build/review/icon-grid
           GALLERY_EVIDENCE: build/review/gallery
+          EMOTICON_EVIDENCE: build/review/emoticon
         run: |
-          mkdir -p "$ICON_GRID_EVIDENCE/before" "$ICON_GRID_EVIDENCE/after" "$GALLERY_EVIDENCE"
+          mkdir -p "$ICON_GRID_EVIDENCE/before" "$ICON_GRID_EVIDENCE/after" "$GALLERY_EVIDENCE" "$EMOTICON_EVIDENCE"
           record_review_evidence() {
             result=$?
             set +e
-            for directory in "$ICON_GRID_EVIDENCE/after" "$GALLERY_EVIDENCE"; do
+            for directory in "$ICON_GRID_EVIDENCE/after" "$GALLERY_EVIDENCE" "$EMOTICON_EVIDENCE"; do
               if [ -n "$(find "$directory" -type f -name '*.png' -print -quit)" ]; then
                 printf '%s\n' "$result" > "$directory/test-exit.txt"
                 find "$directory" -type f -name '*.png' -exec sha256sum {} + > "$directory/frames.sha256"
@@ -66,6 +67,15 @@ jobs:
               git rev-parse HEAD > "$GALLERY_EVIDENCE/source-commit.txt"
               sha256sum lib/components/imageview.dart lib/components/retryable_media_image.dart lib/pages/others/imageview_page.dart test/ui/gallery_states_test.dart test/ui/gallery_test_support.dart test/fixtures/gallery/* pubspec.lock > "$GALLERY_EVIDENCE/source.sha256"
               printf '%s\n' 'timeout 900s flutter test --no-pub --reporter expanded' > "$GALLERY_EVIDENCE/test-command.txt"
+            fi
+            if [ -n "$(find "$EMOTICON_EVIDENCE" -type f -name '*.png' -print -quit)" ]; then
+              metadata_result=0
+              git rev-parse HEAD > "$EMOTICON_EVIDENCE/source-commit.txt" || metadata_result=$?
+              sha256sum lib/pages/feed/reply/insert_emote.dart lib/pages/feed/reply/reply_page.dart lib/pages/feed/reply/reply_dialog.dart lib/pages/feed/reply/toolbar_icon_button.dart lib/pages/feed/reply/emoji_panel.dart lib/utils/emoji_util.dart test/ui/insert_emote_test.dart test/ui/emote_selection_test.dart test/ui/emote_test_support.dart test/fixtures/gallery/portrait.png assets/emojis/* assets/fonts/*.otf pubspec.lock > "$EMOTICON_EVIDENCE/source.sha256" || metadata_result=$?
+              find "$EMOTICON_EVIDENCE" -type f \( -name '*.png' -o -name '*.json' \) -exec sha256sum {} + > "$EMOTICON_EVIDENCE/captures.sha256" || metadata_result=$?
+              printf '%s\n' 'timeout 900s flutter test --no-pub --reporter expanded' > "$EMOTICON_EVIDENCE/test-command.txt" || metadata_result=$?
+              printf '%s\n' 'Offline real ReplyPage GetDialogRoute, not full Home app or physical device. PNG/JSON captures require visible original emoji art. test-exit.txt is the whole-suite exit; metadata-exit.txt is evidence recording status.' > "$EMOTICON_EVIDENCE/scope.txt" || metadata_result=$?
+              printf '%s\n' "$metadata_result" > "$EMOTICON_EVIDENCE/metadata-exit.txt"
             fi
             exit "$result"
           }
@@ -85,6 +95,14 @@ jobs:
         with:
           name: c001apk-gallery-review
           path: apps/flutter/build/review/gallery/
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload synthetic emoticon review
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: c001apk-emoticon-review
+          path: apps/flutter/build/review/emoticon/
           if-no-files-found: error
           retention-days: 14
       - name: Standalone diagnostic widget regressions

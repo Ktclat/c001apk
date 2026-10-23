@@ -22,10 +22,12 @@ import '../../../logic/network/network_repo.dart';
 import '../../../pages/feed/reply/emoji_panel.dart';
 import '../../../pages/feed/reply/toolbar_icon_button.dart';
 import '../../../utils/extensions.dart';
+import '../../../utils/global_data.dart';
 import '../../../utils/oss/aliyunoss_client.dart';
 import '../../../utils/oss/aliyunoss_config.dart';
 import '../../../utils/oss_util.dart';
 import '../../../utils/utils.dart';
+import 'insert_emote.dart';
 
 /// From Pilipala
 
@@ -67,6 +69,7 @@ class _ReplyDialogState extends State<ReplyDialog> with WidgetsBindingObserver {
   final _publishStream = StreamController<bool>();
   bool _enablePublish = false;
   bool _publishing = false;
+  final _sessionGeneration = GlobalData().sessionGeneration;
   final _checkBoxStream = StreamController<bool>();
   bool _checkBoxValue = false;
   final TextEditingController _captchaController = TextEditingController();
@@ -298,15 +301,28 @@ class _ReplyDialogState extends State<ReplyDialog> with WidgetsBindingObserver {
   }
 
   void _onChooseEmote(String emoji) {
-    final int cursorPosition = _replyContentController.selection.baseOffset;
-    final String currentText = _replyContentController.text;
-    final String newText = currentText.substring(0, cursorPosition) +
-        emoji +
-        currentText.substring(cursorPosition);
-    _replyContentController.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: cursorPosition + emoji.length),
-    );
+    if (!mounted ||
+        _publishing ||
+        _sessionGeneration != GlobalData().sessionGeneration ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return;
+    }
+    final result = insertEmote(_replyContentController.value, emoji);
+    if (result.failure != null) {
+      SmartDialog.showToast(
+          result.failure == EmoteInsertionFailure.characterLimit
+              ? '最多输入500个字，无法插入完整表情'
+              : '内容过长，无法插入表情，请先缩短文字或全选替换');
+      return;
+    }
+    final value = result.value;
+    if (value == _replyContentController.value) return;
+    _replyContentController.value = value;
+    final enabled = value.text.replaceAll('\n', '').isNotEmpty;
+    if (_enablePublish != enabled) {
+      _enablePublish = enabled;
+      _publishStream.add(enabled);
+    }
   }
 
   @override
@@ -622,13 +638,7 @@ class _ReplyDialogState extends State<ReplyDialog> with WidgetsBindingObserver {
                   bottom: MediaQuery.of(context).padding.bottom),
               child: EmotePanel(
                 index: 1,
-                onClick: (emoji) {
-                  _onChooseEmote(emoji);
-                  if (!_enablePublish) {
-                    _enablePublish = true;
-                    _publishStream.add(true);
-                  }
-                },
+                onClick: _onChooseEmote,
               ),
             ),
           ),

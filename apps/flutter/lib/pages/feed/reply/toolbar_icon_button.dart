@@ -4,19 +4,21 @@ class ToolbarIconButton extends StatelessWidget {
   final VoidCallback onPressed;
   final Icon icon;
   final bool selected;
+  final double extent;
 
   const ToolbarIconButton({
     super.key,
     required this.onPressed,
     required this.icon,
     required this.selected,
+    this.extent = 36,
   });
 
   @override
   Widget build(BuildContext context) {
     return SizedBox(
-      width: 36,
-      height: 36,
+      width: extent,
+      height: extent,
       child: IconButton(
         onPressed: onPressed,
         icon: icon,

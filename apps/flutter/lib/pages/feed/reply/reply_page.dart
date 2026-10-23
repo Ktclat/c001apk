@@ -25,10 +25,12 @@ import '../../../pages/feed/reply/emoji_panel.dart';
 import '../../../pages/feed/reply/reply_dialog.dart' show ReplyType;
 import '../../../pages/feed/reply/toolbar_icon_button.dart';
 import '../../../utils/extensions.dart';
+import '../../../utils/global_data.dart';
 import '../../../utils/oss/aliyunoss_client.dart';
 import '../../../utils/oss/aliyunoss_config.dart';
 import '../../../utils/oss_util.dart';
 import '../../../utils/utils.dart';
+import 'insert_emote.dart';
 
 enum PanelType { none, keyboard, emoji }
 
@@ -66,6 +68,7 @@ class _ReplyPageState extends State<ReplyPage>
   late final _enableSend = StreamController<bool>();
   bool _enablePublish = false;
   bool _publishing = false;
+  final _sessionGeneration = GlobalData().sessionGeneration;
   final _publishStream = StreamController<bool>();
   bool _selectKeyboard = true;
   final _keyboardStream = StreamController<bool>.broadcast();
@@ -115,10 +118,10 @@ class _ReplyPageState extends State<ReplyPage>
         child: Scaffold(
           resizeToAvoidBottomInset: false,
           backgroundColor: Colors.transparent,
-          body: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+          body: Stack(
+            fit: StackFit.expand,
             children: [
-              Expanded(
+              Positioned.fill(
                 child: InkWell(
                   highlightColor: Colors.transparent,
                   splashColor: Colors.transparent,
@@ -129,9 +132,17 @@ class _ReplyPageState extends State<ReplyPage>
                   },
                 ),
               ),
-              _buildInputView(),
-              _buildImagePreview(),
-              _buildPanelContainer(),
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(child: _buildInputView()),
+                    _buildImagePreview(),
+                    _buildPanelContainer(),
+                  ],
+                ),
+              ),
             ],
           ),
         ));
@@ -182,19 +193,16 @@ class _ReplyPageState extends State<ReplyPage>
     if (keyboardHeight != 0) {
       height = max(height, keyboardHeight);
     }
+    // Leave usable editor space on short/landscape windows. The complete tabs
+    // and scrollable grid remain present; no artwork or font is scaled down.
+    height = min(height, max(120, MediaQuery.sizeOf(context).height * .4));
     return SizedBox(
       height: height,
       child: Padding(
         padding: EdgeInsets.only(bottom: MediaQuery.of(context).padding.bottom),
         child: EmotePanel(
           index: 1,
-          onClick: (emoji) {
-            _onChooseEmote(emoji);
-            if (!_enablePublish) {
-              _enablePublish = true;
-              _publishStream.add(true);
-            }
-          },
+          onClick: _onChooseEmote,
         ),
       ),
     );
@@ -259,50 +267,56 @@ class _ReplyPageState extends State<ReplyPage>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Container(
-            padding:
-                const EdgeInsets.only(top: 12, right: 15, left: 15, bottom: 10),
-            child: Form(
-              autovalidateMode: AutovalidateMode.onUserInteraction,
-              child: Listener(
-                onPointerUp: (event) {
-                  if (_readOnly) {
-                    updatePanelType(PanelType.keyboard);
-                    if (!_selectKeyboard) {
-                      _selectKeyboard = true;
-                      _keyboardStream.add(true);
-                    }
-                  }
-                },
-                child: StreamBuilder(
-                  initialData: false,
-                  stream: _readOnlyStream.stream,
-                  builder: (context, snapshot) => TextField(
-                    minLines: 4,
-                    maxLines: 8,
-                    maxLength: 500,
-                    autofocus: false,
-                    focusNode: _focusNode,
-                    readOnly: snapshot.data ?? false,
-                    controller: _replyContentController,
-                    onChanged: (value) {
-                      bool isNotEmpty = value.replaceAll('\n', '').isNotEmpty;
-                      if (isNotEmpty && !_enablePublish) {
-                        _enablePublish = true;
-                        _publishStream.add(true);
-                      } else if (!isNotEmpty && _enablePublish) {
-                        _enablePublish = false;
-                        _publishStream.add(false);
+          Flexible(
+            child: SingleChildScrollView(
+              key: const ValueKey('reply-editor-scroll'),
+              child: Container(
+                padding: const EdgeInsets.only(
+                    top: 12, right: 15, left: 15, bottom: 10),
+                child: Form(
+                  autovalidateMode: AutovalidateMode.onUserInteraction,
+                  child: Listener(
+                    onPointerUp: (event) {
+                      if (_readOnly) {
+                        updatePanelType(PanelType.keyboard);
+                        if (!_selectKeyboard) {
+                          _selectKeyboard = true;
+                          _keyboardStream.add(true);
+                        }
                       }
                     },
-                    decoration: InputDecoration(
-                      hintText: widget.username != null
-                          ? '回复: ${widget.username}'
-                          : '发布${widget.title != null ? '于: ${widget.title}' : '动态'}',
-                      border: InputBorder.none,
-                      hintStyle: const TextStyle(fontSize: 14),
+                    child: StreamBuilder(
+                      initialData: false,
+                      stream: _readOnlyStream.stream,
+                      builder: (context, snapshot) => TextField(
+                        minLines: 4,
+                        maxLines: 8,
+                        maxLength: 500,
+                        autofocus: false,
+                        focusNode: _focusNode,
+                        readOnly: snapshot.data ?? false,
+                        controller: _replyContentController,
+                        onChanged: (value) {
+                          bool isNotEmpty =
+                              value.replaceAll('\n', '').isNotEmpty;
+                          if (isNotEmpty && !_enablePublish) {
+                            _enablePublish = true;
+                            _publishStream.add(true);
+                          } else if (!isNotEmpty && _enablePublish) {
+                            _enablePublish = false;
+                            _publishStream.add(false);
+                          }
+                        },
+                        decoration: InputDecoration(
+                          hintText: widget.username != null
+                              ? '回复: ${widget.username}'
+                              : '发布${widget.title != null ? '于: ${widget.title}' : '动态'}',
+                          border: InputBorder.none,
+                          hintStyle: const TextStyle(fontSize: 14),
+                        ),
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
                     ),
-                    style: Theme.of(context).textTheme.bodyLarge,
                   ),
                 ),
               ),
@@ -313,163 +327,179 @@ class _ReplyPageState extends State<ReplyPage>
             color: Theme.of(context).dividerColor.withOpacity(0.1),
           ),
           Container(
-            height: 52,
-            padding: const EdgeInsets.only(left: 12, right: 12),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            constraints: const BoxConstraints(minHeight: 52),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            // Keep full-size controls visible when accessibility text grows.
+            // OverflowBar moves the action group onto a second row as needed.
+            child: OverflowBar(
+              alignment: MainAxisAlignment.spaceBetween,
+              overflowAlignment: OverflowBarAlignment.end,
+              spacing: 8,
+              overflowSpacing: 4,
               children: [
-                StreamBuilder(
-                  initialData: true,
-                  stream: _keyboardStream.stream,
-                  builder: (_, snapshot) => ToolbarIconButton(
-                    onPressed: () {
-                      if (!_selectKeyboard) {
-                        _selectKeyboard = true;
-                        _keyboardStream.add(true);
-                        updatePanelType(PanelType.keyboard);
-                      }
-                    },
-                    icon: const Icon(Icons.keyboard, size: 22),
-                    selected: snapshot.data!,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                StreamBuilder(
-                  initialData: true,
-                  stream: _keyboardStream.stream,
-                  builder: (_, snapshot) => ToolbarIconButton(
-                    onPressed: () {
-                      if (_selectKeyboard) {
-                        _selectKeyboard = false;
-                        _keyboardStream.add(false);
-                        updatePanelType(PanelType.emoji);
-                      }
-                    },
-                    icon: const Icon(Icons.emoji_emotions, size: 22),
-                    selected: !snapshot.data!,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                ToolbarIconButton(
-                  selected: false,
-                  icon: const Icon(Icons.image, size: 22),
-                  onPressed: () async {
-                    List<XFile> pickedFiles = await _imagePicker.pickMultiImage(
-                      limit: 9,
-                      imageQuality: 100,
-                    );
-                    if (pickedFiles.isNotEmpty) {
-                      try {
-                        for (int i = 0; i < pickedFiles.length; i++) {
-                          if (_pathList.length == 9) {
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StreamBuilder(
+                      initialData: true,
+                      stream: _keyboardStream.stream,
+                      builder: (_, snapshot) => ToolbarIconButton(
+                        extent: 48,
+                        onPressed: () {
+                          if (!_selectKeyboard) {
+                            _selectKeyboard = true;
+                            _keyboardStream.add(true);
+                            updatePanelType(PanelType.keyboard);
+                          }
+                        },
+                        icon: const Icon(Icons.keyboard, size: 22),
+                        selected: snapshot.data!,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    StreamBuilder(
+                      initialData: true,
+                      stream: _keyboardStream.stream,
+                      builder: (_, snapshot) => ToolbarIconButton(
+                        extent: 48,
+                        onPressed: () {
+                          if (_selectKeyboard) {
+                            _selectKeyboard = false;
+                            _keyboardStream.add(false);
+                            updatePanelType(PanelType.emoji);
+                          }
+                        },
+                        icon: const Icon(Icons.emoji_emotions, size: 22),
+                        selected: !snapshot.data!,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    ToolbarIconButton(
+                      extent: 48,
+                      selected: false,
+                      icon: const Icon(Icons.image, size: 22),
+                      onPressed: () async {
+                        List<XFile> pickedFiles =
+                            await _imagePicker.pickMultiImage(
+                          limit: 9,
+                          imageQuality: 100,
+                        );
+                        if (pickedFiles.isNotEmpty) {
+                          try {
+                            for (int i = 0; i < pickedFiles.length; i++) {
+                              if (_pathList.length == 9) {
+                                SmartDialog.dismiss();
+                                SmartDialog.showToast('最多选择9张图片');
+                                if (i != 0) {
+                                  _pathStream.add(_pathList);
+                                }
+                                break;
+                              } else {
+                                SmartDialog.showLoading(
+                                    msg: '正在加载图片: $i/${pickedFiles.length}');
+                                Uint8List imageBytes =
+                                    await pickedFiles[i].readAsBytes();
+                                ui.Image image =
+                                    await decodeImageFromList(imageBytes);
+                                int width = image.width;
+                                int height = image.height;
+                                Digest md5Hash = md5.convert(imageBytes);
+                                String mimeType =
+                                    lookupMimeType(pickedFiles[i].path) ??
+                                        'image/png';
+                                String name =
+                                    '${const Uuid().v1().replaceAll('-', '')}.${mimeType.replaceFirst('image/', '')}';
+                                OssUploadModel uploadModel = OssUploadModel(
+                                  name: name,
+                                  resolution: '${width}x$height',
+                                  md5: md5Hash.toString(),
+                                );
+                                _pathList.add(pickedFiles[i].path);
+                                _modelList.add(uploadModel);
+                                if (i == pickedFiles.length - 1) {
+                                  SmartDialog.dismiss();
+                                  _pathStream.add(_pathList);
+                                }
+                              }
+                            }
+                          } catch (e) {
                             SmartDialog.dismiss();
-                            SmartDialog.showToast('最多选择9张图片');
-                            if (i != 0) {
-                              _pathStream.add(_pathList);
-                            }
-                            break;
-                          } else {
-                            SmartDialog.showLoading(
-                                msg: '正在加载图片: $i/${pickedFiles.length}');
-                            Uint8List imageBytes =
-                                await pickedFiles[i].readAsBytes();
-                            ui.Image image =
-                                await decodeImageFromList(imageBytes);
-                            int width = image.width;
-                            int height = image.height;
-                            Digest md5Hash = md5.convert(imageBytes);
-                            String mimeType =
-                                lookupMimeType(pickedFiles[i].path) ??
-                                    'image/png';
-                            String name =
-                                '${const Uuid().v1().replaceAll('-', '')}.${mimeType.replaceFirst('image/', '')}';
-                            OssUploadModel uploadModel = OssUploadModel(
-                              name: name,
-                              resolution: '${width}x$height',
-                              md5: md5Hash.toString(),
-                            );
-                            _pathList.add(pickedFiles[i].path);
-                            _modelList.add(uploadModel);
-                            if (i == pickedFiles.length - 1) {
-                              SmartDialog.dismiss();
-                              _pathStream.add(_pathList);
-                            }
+                            debugPrint(e.toString());
                           }
                         }
-                      } catch (e) {
-                        SmartDialog.dismiss();
-                        debugPrint(e.toString());
-                      }
-                    }
-                  },
+                      },
+                    ),
+                  ],
                 ),
-                const Spacer(),
-                StreamBuilder(
-                  initialData: false,
-                  stream: _checkBoxStream.stream,
-                  builder: (_, snapshot) => TextButton(
-                    onPressed: () {
-                      _checkBoxValue = !_checkBoxValue;
-                      _checkBoxStream.add(_checkBoxValue);
-                    },
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 9),
-                      visualDensity: const VisualDensity(
-                        horizontal: -2,
-                        vertical: -2,
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StreamBuilder(
+                      initialData: false,
+                      stream: _checkBoxStream.stream,
+                      builder: (_, snapshot) => TextButton(
+                        onPressed: () {
+                          _checkBoxValue = !_checkBoxValue;
+                          _checkBoxStream.add(_checkBoxValue);
+                        },
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 9),
+                          minimumSize: const Size(48, 48),
+                          visualDensity: VisualDensity.standard,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Checkbox(
+                              side: BorderSide(
+                                  width: 2,
+                                  color: Theme.of(context).colorScheme.outline),
+                              fillColor:
+                                  WidgetStateProperty.resolveWith((states) {
+                                if (states.contains(WidgetState.selected)) {
+                                  return Theme.of(context).colorScheme.primary;
+                                }
+                                return null;
+                              }),
+                              value: _checkBoxValue,
+                              onChanged: null,
+                              visualDensity: const VisualDensity(
+                                  horizontal: -4, vertical: -4),
+                            ),
+                            Text(
+                              widget.type == null ? '仅自己可见' : '回复并转发',
+                              style: TextStyle(
+                                height: 1,
+                                color: _checkBoxValue
+                                    ? Theme.of(context).colorScheme.onSurface
+                                    : Theme.of(context).colorScheme.outline,
+                              ),
+                              strutStyle:
+                                  const StrutStyle(height: 1, leading: 0),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Checkbox(
-                          side: BorderSide(
-                              width: 2,
-                              color: Theme.of(context).colorScheme.outline),
-                          fillColor: WidgetStateProperty.resolveWith((states) {
-                            if (states.contains(WidgetState.selected)) {
-                              return Theme.of(context).colorScheme.primary;
-                            }
-                            return null;
-                          }),
-                          value: _checkBoxValue,
-                          onChanged: null,
-                          visualDensity:
-                              const VisualDensity(horizontal: -4, vertical: -4),
-                        ),
-                        Text(
-                          widget.type == null ? '仅自己可见' : '回复并转发',
-                          style: TextStyle(
-                            height: 1,
-                            color: _checkBoxValue
-                                ? Theme.of(context).colorScheme.onSurface
-                                : Theme.of(context).colorScheme.outline,
+                    const SizedBox(width: 8),
+                    StreamBuilder(
+                      initialData: false,
+                      stream: _publishStream.stream,
+                      builder: (_, snapshot) => FilledButton.tonal(
+                        onPressed: snapshot.data == true ? _onPublish : null,
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 10,
                           ),
-                          strutStyle: const StrutStyle(height: 1, leading: 0),
+                          minimumSize: const Size(48, 48),
+                          visualDensity: VisualDensity.standard,
                         ),
-                      ],
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                StreamBuilder(
-                  initialData: false,
-                  stream: _publishStream.stream,
-                  builder: (_, snapshot) => FilledButton.tonal(
-                    onPressed: snapshot.data == true ? _onPublish : null,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 20,
-                        vertical: 10,
-                      ),
-                      visualDensity: const VisualDensity(
-                        horizontal: -2,
-                        vertical: -2,
+                        child: const Text('发布'),
                       ),
                     ),
-                    child: const Text('发布'),
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -728,18 +758,27 @@ class _ReplyPageState extends State<ReplyPage>
   }
 
   void _onChooseEmote(String emoji) {
-    if (!_enablePublish) {
-      _enablePublish = true;
-      _publishStream.add(true);
+    if (!mounted ||
+        _publishing ||
+        _sessionGeneration != GlobalData().sessionGeneration ||
+        ModalRoute.of(context)?.isCurrent == false) {
+      return;
     }
-    final int cursorPosition = _replyContentController.selection.baseOffset;
-    final String currentText = _replyContentController.text;
-    final String newText = currentText.substring(0, cursorPosition) +
-        emoji +
-        currentText.substring(cursorPosition);
-    _replyContentController.value = TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: cursorPosition + emoji.length),
-    );
+    final result = insertEmote(_replyContentController.value, emoji);
+    if (result.failure != null) {
+      SmartDialog.showToast(
+          result.failure == EmoteInsertionFailure.characterLimit
+              ? '最多输入500个字，无法插入完整表情'
+              : '内容过长，无法插入表情，请先缩短文字或全选替换');
+      return;
+    }
+    final value = result.value;
+    if (value == _replyContentController.value) return;
+    _replyContentController.value = value;
+    final enabled = value.text.replaceAll('\n', '').isNotEmpty;
+    if (_enablePublish != enabled) {
+      _enablePublish = enabled;
+      _publishStream.add(enabled);
+    }
   }
 }
