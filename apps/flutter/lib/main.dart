@@ -19,9 +19,11 @@ import 'pages/webview/captcha_page.dart';
 import 'router/app_pages.dart';
 import 'utils/storage_util.dart';
 import 'utils/app_theme.dart';
+import 'utils/bundled_font_licenses.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  registerBundledFontLicenses();
 
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
