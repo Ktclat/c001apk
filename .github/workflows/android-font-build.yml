@@ -48,7 +48,29 @@ jobs:
       - name: Account manager widget regressions
         run: timeout 150s flutter test --no-pub test/ui/accounts_page_test.dart --reporter expanded
       - name: Offline regression tests
-        run: timeout 900s flutter test --no-pub --reporter expanded
+        env:
+          ICON_GRID_EVIDENCE: build/review/icon-grid
+        run: |
+          mkdir -p "$ICON_GRID_EVIDENCE/before" "$ICON_GRID_EVIDENCE/after"
+          record_icon_grid_evidence() {
+            result=$?
+            set +e
+            if [ -n "$(find "$ICON_GRID_EVIDENCE/after" -type f -name '*.png' -print -quit)" ]; then
+              printf '%s\n' "$result" > "$ICON_GRID_EVIDENCE/after/test-exit.txt"
+              find "$ICON_GRID_EVIDENCE/after" -type f -name '*.png' -exec sha256sum {} + > "$ICON_GRID_EVIDENCE/after/frames.sha256"
+            fi
+            exit "$result"
+          }
+          trap record_icon_grid_evidence EXIT
+          timeout 900s flutter test --no-pub --reporter expanded
+      - name: Upload synthetic icon-grid review
+        if: always()
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: c001apk-icon-grid-review
+          path: apps/flutter/build/review/icon-grid/after/
+          if-no-files-found: error
+          retention-days: 14
       - name: Standalone diagnostic widget regressions
         run: timeout 300s flutter test --no-pub --dart-define=APP_DIAGNOSTIC=true test/ui/navigation_adaptive_test.dart --name 'policy|diagnostics|motion' --reporter expanded
       - name: Upload synthetic typography review
