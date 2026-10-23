@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../components/nine_grid_view.dart';
+import 'retryable_media_image.dart';
 import '../constants/constants.dart';
 import '../utils/utils.dart';
 
@@ -13,6 +14,7 @@ Widget image(
   List<String> picArr, {
   bool isFeedArticle = false,
   String? articleImg,
+  MediaImageProviderBuilder? imageProviderBuilder,
 }) {
   double imageWidth = (maxWidth - 2 * 5) / 3;
   double imageHeight = imageWidth;
@@ -31,20 +33,15 @@ Widget image(
                 : imageWidth;
     imageHeight = imageWidth * min(ratioHW, maxRatio);
   }
-  return NineGridView(
-    bigImageWidth: imageWidth,
-    bigImageHeight: imageHeight,
-    space: 5,
-    height: isFeedArticle || picArr.length == 1 ? imageHeight : null,
-    width: isFeedArticle || picArr.length == 1 ? imageWidth : maxWidth,
-    itemCount: isFeedArticle ? 1 : picArr.length,
-    itemBuilder: (context, index) => GestureDetector(
+  final shortSingle = !isFeedArticle && picArr.length == 1 && imageHeight < 48;
+  final ordinaryHeight = shortSingle ? 48.0 : imageHeight;
+  Widget buildTile(BuildContext context, int index) {
+    final tile = GestureDetector(
+      behavior: isFeedArticle ? null : HitTestBehavior.opaque,
       onTap: () {
         Map<dynamic, dynamic> arguments = {
           "imgList": picArr,
-          "initialPage": isFeedArticle
-              ? picArr.indexOf(articleImg!)
-              : picArr.indexOf(picArr[index]),
+          "initialPage": isFeedArticle ? picArr.indexOf(articleImg!) : index,
         };
         Get.toNamed('/imageview', arguments: arguments);
       },
@@ -61,16 +58,35 @@ Widget image(
           child: Stack(
             alignment: Alignment.bottomRight,
             children: [
-              networkImage(
-                isFeedArticle
-                    ? '$articleImg${Constants.SUFFIX_THUMBNAIL}'
-                    : '${picArr[index]}${Constants.SUFFIX_THUMBNAIL}',
-                width: imageWidth,
-                height: imageHeight,
-                fit: isFeedArticle || picArr.length == 1
-                    ? BoxFit.fill
-                    : BoxFit.cover,
-              ),
+              if (isFeedArticle)
+                networkImage(
+                  '$articleImg${Constants.SUFFIX_THUMBNAIL}',
+                  width: imageWidth,
+                  height: imageHeight,
+                  fit: BoxFit.fill,
+                )
+              else
+                RetryableMediaImage(
+                  key: ValueKey((index, picArr[index])),
+                  url: '${picArr[index]}${Constants.SUFFIX_THUMBNAIL}',
+                  index: index,
+                  width: imageWidth,
+                  height: ordinaryHeight,
+                  fit: shortSingle
+                      ? BoxFit.contain
+                      : picArr.length == 1
+                          ? BoxFit.fill
+                          : BoxFit.cover,
+                  providerBuilder: imageProviderBuilder,
+                ),
+              if (!isFeedArticle && index == 8 && picArr.length > 9)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  child: IgnorePointer(
+                    child: _badge(context, '+${picArr.length - 9}'),
+                  ),
+                ),
               if ((articleImg ?? picArr[index]).endsWith(Constants.SUFFIX_GIF))
                 _badge(context, 'GIF'),
               if (!(articleImg ?? picArr[index])
@@ -81,7 +97,33 @@ Widget image(
           ),
         ),
       ),
-    ),
+    );
+    if (isFeedArticle) return tile;
+    return Semantics(
+      container: true,
+      button: true,
+      label: '查看第 ${index + 1} 张图片，共 ${picArr.length} 张',
+      child: tile,
+    );
+  }
+
+  if (shortSingle) {
+    // Give very wide single images a stable touch region in every state.
+    // BoxFit.contain keeps their source aspect ratio; it never stretches pixels.
+    return SizedBox(
+      width: imageWidth,
+      height: ordinaryHeight,
+      child: Builder(builder: (context) => buildTile(context, 0)),
+    );
+  }
+  return NineGridView(
+    bigImageWidth: imageWidth,
+    bigImageHeight: imageHeight,
+    space: 5,
+    height: isFeedArticle || picArr.length == 1 ? imageHeight : null,
+    width: isFeedArticle || picArr.length == 1 ? imageWidth : maxWidth,
+    itemCount: isFeedArticle ? 1 : picArr.length,
+    itemBuilder: buildTile,
   );
 }
 
