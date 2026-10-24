@@ -214,8 +214,9 @@ class _AppPageState extends State<AppPage> with TickerProviderStateMixin {
                                   controller.id!, ShareType.apk));
                               break;
                             case AppMenuItem.Share:
-                              Share.share(Utils.getShareUrl(
-                                  controller.id!, ShareType.apk));
+                              Share.share(Utils.getShareText(
+                                  controller.id!, ShareType.apk,
+                                  title: controller.appName));
                               break;
                             case AppMenuItem.Follow:
                               if (GlobalData().isLogin) {

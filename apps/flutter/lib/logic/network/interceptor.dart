@@ -76,6 +76,9 @@ class ApiInterceptor extends Interceptor {
       return;
     }
     try {
+      // Callers/interceptors may supply immutable headers. Own our mutable copy
+      // before adding signed headers or stripping public-feed cookies.
+      options.headers = Map<String, dynamic>.from(options.headers);
       final uri = options.uri;
       final publicFeed = uri.scheme == 'https' &&
           uri.host == 'www.coolapk.com' &&
@@ -122,8 +125,8 @@ class ApiInterceptor extends Interceptor {
         if (publicFeed) {
           // Official public feed JSON needs signed client headers, but no
           // account/session cookie. Restrict these headers to numeric feed IDs.
-          options.headers
-              .removeWhere((key, _) => key.toLowerCase() == 'cookie');
+          options.headers = Map.fromEntries(options.headers.entries
+              .where((entry) => entry.key.toLowerCase() != 'cookie'));
           options.responseType = ResponseType.plain;
         } else {
           options.extra['apiSessionContext'] = _sessions.capture();

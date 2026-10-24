@@ -113,6 +113,11 @@ Map<String, dynamic> readApiObject(Response<dynamic> response) {
     if (clues.contains('rate_limit') || clues.contains('频繁') || code == 429) {
       throw const ApiFailure(ApiFailureKind.rateLimit, '请求过于频繁，请稍后重试');
     }
+    if (response.requestOptions.uri.path == '/v6/apk/detail' &&
+        businessStatus == -2 &&
+        (message.contains('应用不存在') || message.contains('未上架'))) {
+      throw const ApiFailure(ApiFailureKind.business, '该应用未在酷安上架');
+    }
     throw const ApiFailure(ApiFailureKind.business, '服务器未能完成请求，请稍后重试');
   }
   if (!body.containsKey('data')) {

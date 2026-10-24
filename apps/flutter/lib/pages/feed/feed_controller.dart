@@ -13,6 +13,7 @@ import '../../pages/common/common_controller.dart';
 import '../../pages/feed/feed_page.dart' show ReplySortType;
 import '../../utils/extensions.dart';
 import '../../utils/storage_util.dart';
+import '../../utils/global_data.dart';
 
 class FeedController extends CommonController {
   FeedController({required this.id, required this.recordHistory});
@@ -43,6 +44,71 @@ class FeedController extends CommonController {
   bool isBlocked = false;
 
   Rx<ReplySortType> replySelection = ReplySortType.def.obs;
+
+  final repliesDeferred = GStorage.szlmId.trim().isEmpty.obs;
+  String _replyDeviceId = GStorage.szlmId.trim();
+
+  void _syncReplyIdentity() {
+    final current = GStorage.szlmId.trim();
+    if (current != _replyDeviceId) {
+      _replyDeviceId = current;
+      repliesDeferred.value = current.isEmpty;
+    }
+  }
+
+  @override
+  Future<void> onGetData([bool isRefresh = true]) async {
+    // All automatic paths (detail, refresh, sort and pagination) share this
+    // gate. Only the comment section's explicit action opts into verification.
+    _syncReplyIdentity();
+    if (repliesDeferred.value || isLoading) return;
+    final generation = GlobalData().sessionGeneration;
+    final device = GStorage.xAppDevice;
+    await super.onGetData(isRefresh);
+    if (isClosed) return;
+    if (generation != GlobalData().sessionGeneration ||
+        device != GStorage.xAppDevice) {
+      _syncReplyIdentity();
+      repliesDeferred.value = true;
+      loadingState.value = LoadingState.error('账号或设备已切换，请重新加载评论');
+      footerState.value = LoadingState.empty();
+      super.onReset();
+      footerState.value = LoadingState.empty();
+      return;
+    }
+    final result = isRefresh ? loadingState.value : footerState.value;
+    if (result is Error && GStorage.szlmId.trim().isEmpty) {
+      repliesDeferred.value = true;
+    }
+  }
+
+  @override
+  void onReset() {
+    _syncReplyIdentity();
+    if (repliesDeferred.value) return;
+    super.onReset();
+  }
+
+  Future<void> loadReplies() async {
+    if (isLoading) return;
+    _syncReplyIdentity();
+    final previous = loadingState.value;
+    final device = GStorage.xAppDevice;
+    final generation = GlobalData().sessionGeneration;
+    repliesDeferred.value = false;
+    onReset();
+    if (previous is! Success) setLoadingState(LoadingState.loading());
+    await onGetData();
+    if (!isClosed &&
+        generation == GlobalData().sessionGeneration &&
+        device == GStorage.xAppDevice &&
+        previous is Success &&
+        loadingState.value is Error) {
+      // A cancelled/rejected retry must not discard already readable comments.
+      footerState.value = loadingState.value;
+      loadingState.value = previous;
+    }
+  }
 
   void setFeedState(LoadingState feedState) {
     this.feedState.value = feedState;

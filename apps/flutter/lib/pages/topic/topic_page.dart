@@ -242,7 +242,7 @@ class _TopicPageState extends State<TopicPage> with TickerProviderStateMixin {
                           ));
                           break;
                         case TopicMenuItem.Share:
-                          Share.share(Utils.getShareUrl(
+                          Share.share(Utils.getShareText(
                             _topicController.entityType == 'topic'
                                 ? _topicController.title!
                                 : _topicController.id!,
