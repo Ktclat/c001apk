@@ -12,27 +12,28 @@ BADGING = """package: name='io.github.ktclat.c001apk' versionName='0.1.0'
 application-label:'c001apk'
 native-code: 'arm64-v8a'
 """
-MANIFEST = 'E: manifest\n  E: application\n'
 LIBRARIES = {'lib/arm64-v8a/libapp.so': b'aot', 'lib/arm64-v8a/libflutter.so': b'engine'}
 ROOT = Path(__file__).resolve().parents[3]
 
 
 class NormalProfileApkTests(unittest.TestCase):
-    def check_apk(self, badging=BADGING, manifest=MANIFEST, libraries=None, limit=None):
+    def check_apk(self, badging=BADGING, libraries=None, limit=None):
         with tempfile.TemporaryDirectory() as directory:
             apk = Path(directory) / 'app-arm64-v8a-profile.apk'
             with zipfile.ZipFile(apk, 'w') as archive:
                 for name, content in (LIBRARIES if libraries is None else libraries).items():
                     archive.writestr(name, content)
-            with patch.object(verifier.subprocess, 'check_output', side_effect=[badging, manifest]) as aapt:
+            with patch.object(verifier.subprocess, 'check_output', return_value=badging) as aapt:
                 with patch.object(verifier, 'MAX_APK_BYTES', apk.stat().st_size + limit if limit is not None else 50_000_000):
                     verifier.verify('/mock/aapt', apk)
                 self.assertEqual(aapt.call_args_list[0].args[0], ['/mock/aapt', 'dump', 'badging', str(apk)])
-                self.assertEqual(aapt.call_args_list[1].args[0], ['/mock/aapt', 'dump', 'xmltree', str(apk), 'AndroidManifest.xml'])
+                self.assertEqual(aapt.call_count, 1)
 
-    def test_accepts_normal_non_debug_aot(self):
+    def test_accepts_normal_aot_with_android_profile_debuggability(self):
         self.check_apk()
-        self.check_apk(manifest=MANIFEST + '    A: android:debuggable(0x0101000f)=(type 0x12)0x0\n')
+        # Actual Flutter 3.24.5 profile badging includes this flag. It does not
+        # turn the nonempty libapp.so / no-kernel layout into a JIT build.
+        self.check_apk(badging=BADGING + 'application-debuggable\n')
 
     def test_rejects_wrong_identity_label_or_diagnostic_version(self):
         for badge in (BADGING.replace("c001apk' version", "c001apk.diagnostic.motion' version"),
@@ -47,11 +48,11 @@ class NormalProfileApkTests(unittest.TestCase):
             with self.subTest(abi=abi), self.assertRaises(ValueError):
                 self.check_apk(badging=BADGING.replace("native-code: 'arm64-v8a'", abi))
 
-    def test_rejects_debug_builds(self):
-        with self.assertRaises(ValueError):
-            self.check_apk(badging=BADGING + 'application-debuggable\n')
-        with self.assertRaises(ValueError):
-            self.check_apk(manifest=MANIFEST + '    A: android:debuggable(0x0101000f)=(type 0x12)0xffffffff\n')
+    def test_rejects_jit_layout_even_with_android_debuggability(self):
+        for libraries in ({'lib/arm64-v8a/libflutter.so': b'engine'},
+                          dict(LIBRARIES, **{'assets/flutter_assets/kernel_blob.bin': b'jit'})):
+            with self.subTest(libraries=libraries), self.assertRaises(ValueError):
+                self.check_apk(badging=BADGING + 'application-debuggable\n', libraries=libraries)
 
     def test_rejects_wrong_zip_abi_missing_aot_and_kernels(self):
         variants = [{}, {'lib/arm64-v8a/libflutter.so': b'engine'},
