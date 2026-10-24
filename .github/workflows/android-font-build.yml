@@ -39,6 +39,8 @@ jobs:
       - run: flutter pub get --enforce-lockfile
       - name: Verify standalone diagnostic source contract
         run: python3 tools/test_diagnostic_identity.py
+      - name: Verify normal arm64 APK guard regressions
+        run: python3 tools/test_normal_profile_apk.py
       - name: Static analysis
         run: flutter analyze --no-pub --no-fatal-infos
       - name: Isolated Hive account vault test
@@ -188,6 +190,29 @@ jobs:
         with:
           name: c001apk-android-profile
           path: apps/flutter/build/app/outputs/flutter-apk/app-profile.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      # Publish the normal arm64 app before any diagnostic Gradle/Dart opt-ins.
+      - name: Compile normal arm64 profile APK
+        env:
+          SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+          BUILD_RUN: ${{ github.run_number }}
+        run: >-
+          flutter build apk --profile --no-pub --split-per-abi --target-platform android-arm64
+          --dart-define=APP_BUILD_SHA="$(git rev-parse HEAD)"
+          --dart-define=APP_SOURCE_SHA="$SOURCE_SHA"
+          --dart-define=APP_BUILD_RUN="$BUILD_RUN"
+      - name: Verify normal arm64 profile APK before upload
+        run: |
+          python3 tools/verify_normal_profile_apk.py "$ANDROID_HOME/build-tools/34.0.0/aapt" build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk
+          mkdir -p build/normal-arm64
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-profile.apk build/normal-arm64/app-normal-arm64-profile.apk
+      - name: Upload normal arm64 profile APK
+        uses: actions/upload-artifact@v7.0.2
+        with:
+          name: c001apk-android-profile-arm64
+          path: apps/flutter/build/normal-arm64/app-normal-arm64-profile.apk
           if-no-files-found: error
           retention-days: 14
 
