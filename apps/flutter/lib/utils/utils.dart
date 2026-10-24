@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:dio/dio.dart';
-import "package:flutter/foundation.dart";
+import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -54,7 +54,31 @@ class Utils {
   }
 
   static String getShareUrl(String id, ShareType type) {
-    return 'https://www.coolapk1s.com/${type.name}/$id';
+    return 'https://www.coolapk1s.com/${type.name}/${Uri.encodeComponent(id)}';
+  }
+
+  static String getShareText(String id, ShareType type,
+      {String? title, String? message}) {
+    String plain(String value) =>
+        parseHtmlString(value).replaceAll(RegExp(r'\s+'), ' ').trim();
+    var name = plain(title ?? '');
+    if (name.isEmpty) name = plain(message ?? '');
+    if (name.isEmpty) {
+      name = switch (type) {
+        ShareType.feed => '动态',
+        ShareType.u => '用户',
+        ShareType.apk => '应用',
+        ShareType.t => '话题',
+        ShareType.product => '数码',
+      };
+    }
+    // A normal feed has no article title; keep its summary on one short line.
+    if (name.characters.length > 100) {
+      name = '${name.characters.take(100)}…';
+    }
+    return '$name\n${getShareUrl(id, type)}\n'
+        'https://www.coolapk.com/${type.name}/${Uri.encodeComponent(id)}\n'
+        '分享自c001apk';
   }
 
   static void report(dynamic id, ReportType reportType) {
@@ -167,29 +191,87 @@ class Utils {
     String? title,
     bool needConvert = false,
   ]) {
+    try {
+      _openLink(url, title, needConvert);
+    } on FormatException {
+      SmartDialog.showToast('暂不支持此链接');
+    }
+  }
+
+  static void _openLink(
+    String url, [
+    String? title,
+    bool needConvert = false,
+  ]) {
     if (url.isEmpty) {
       return;
     }
+    // Reject malformed escapes before Uri.parse can normalize them, and never
+    // treat credentials in an authority as an app link or forward them outside.
+    if (RegExp(r'%(?![0-9a-fA-F]{2})').hasMatch(url)) {
+      throw const FormatException('Malformed link escape');
+    }
+    final originalUri = Uri.parse(url);
+    if (originalUri.userInfo.isNotEmpty || url.contains('\\')) {
+      throw const FormatException('Unsupported link authority');
+    }
+    // Strict decoding also rejects invalid UTF-8 instead of repairing an ID.
+    final decodedPath = Uri.decodeComponent(originalUri.path);
+    Uri.decodeComponent(originalUri.query);
+    if (RegExp(r'[\x00-\x1f\x7f]').hasMatch(url) ||
+        RegExp(r'[\x00-\x1f\x7f]').hasMatch(decodedPath)) {
+      throw const FormatException('Control character in link');
+    }
     String path = url;
     if (needConvert) {
-      if (url.startsWith(Constants.PREFIX_COOLMARKET)) {
-        path = url.replaceFirst(Constants.PREFIX_COOLMARKET, '/');
-      } else {
-        Uri uri = Uri.parse(url);
-        if (uri.host.contains(Constants.CHANNEL)) {
-          path = '${uri.path}?${uri.query}';
-        }
+      final uri = Uri.tryParse(url);
+      if (uri == null) {
+        SmartDialog.showToast('暂不支持此链接');
+        return;
+      }
+      const hosts = {
+        'coolapk.com',
+        'www.coolapk.com',
+        'm.coolapk.com',
+        'coolapk1s.com',
+        'www.coolapk1s.com',
+      };
+      if (uri.scheme == 'coolmarket' && !uri.hasPort) {
+        path = hosts.contains(uri.host) || uri.host == 'com.coolapk.market'
+            ? uri.path
+            : '/${uri.host}${uri.path}';
+        if (uri.hasQuery) path += '?${uri.query}';
+      } else if ((uri.scheme == 'http' || uri.scheme == 'https') &&
+          hosts.contains(uri.host) &&
+          !uri.hasPort) {
+        path = uri.path;
+        if (uri.hasQuery) path += '?${uri.query}';
       }
     }
-    if (path.startsWith(Constants.PREFIX_FEED)) {
+    if (path.startsWith('/')) {
+      final segments = Uri.parse(path).pathSegments;
+      if (segments.isNotEmpty &&
+          const {'feed', 'event', 'u', 'apk', 'game', 't', 'product'}
+              .contains(segments.first) &&
+          (segments.length < 2 ||
+              segments[1].trim().isEmpty ||
+              segments[1].contains('/') ||
+              segments[1].contains('\\') ||
+              segments.length > 3 ||
+              (segments.length == 3 && segments.last.isNotEmpty))) {
+        SmartDialog.showToast('暂不支持此链接');
+        return;
+      }
+    }
+    if (RegExp(r'^/feed/[0-9]+/?(?:[?#]|$)').hasMatch(path)) {
       // Share queries and fragments are not part of the feed identifier.
-      final id = Uri.parse(path).path.replaceFirst(Constants.PREFIX_FEED, '');
+      final id = Uri.parse(path).pathSegments[1];
       Get.toNamed('/feed/$id');
-    } else if (RegExp(r'^/event/[0-9]+(?:[?#]|$)').hasMatch(path)) {
-      final id = Uri.parse(path).path.substring('/event/'.length);
+    } else if (RegExp(r'^/event/[0-9]+/?(?:[?#]|$)').hasMatch(path)) {
+      final id = Uri.parse(path).pathSegments[1];
       Get.toNamed('/event/$id');
     } else if (path.startsWith(Constants.PREFIX_USER)) {
-      String uid = path.replaceFirst(Constants.PREFIX_USER, '');
+      String uid = Uri.parse(path).pathSegments[1];
       try {
         uid = Uri.encodeComponent(uid);
       } catch (e) {
@@ -197,26 +279,26 @@ class Utils {
       }
       Get.toNamed('/u/$uid');
     } else if (path.startsWith(Constants.PREFIX_APP)) {
-      Get.toNamed('/apk/${path.replaceFirst(Constants.PREFIX_APP, '')}');
+      Get.toNamed(
+          '/apk/${Uri.encodeComponent(Uri.parse(path).pathSegments[1])}');
     } else if (path.startsWith(Constants.PREFIX_GAME)) {
-      Get.toNamed('/apk/${path.replaceFirst(Constants.PREFIX_GAME, '')}');
+      Get.toNamed(
+          '/apk/${Uri.encodeComponent(Uri.parse(path).pathSegments[1])}');
     } else if (path.startsWith(Constants.PREFIX_TOPIC)) {
-      String tag = path
-          .replaceFirst(Constants.PREFIX_TOPIC, '')
-          .replaceFirst(RegExp('\\?type=[A-Za-z0-9]+'), '');
+      String tag = Uri.parse(path).pathSegments[1];
       try {
         tag = Uri.encodeComponent(tag);
       } catch (e) {
         debugPrint(e.toString());
       }
-      if (path.contains('type=8')) {
+      if (Uri.parse(path).queryParameters['type'] == '8') {
         Get.toNamed('/coolpic', parameters: {'title': tag});
       } else {
         Get.toNamed('/t/$tag');
       }
     } else if (path.startsWith(Constants.PREFIX_PRODUCT)) {
       Get.toNamed(
-          '/product/${path.replaceFirst(Constants.PREFIX_PRODUCT, '')}');
+          '/product/${Uri.encodeComponent(Uri.parse(path).pathSegments[1])}');
     } else if (path.startsWith(Constants.PREFIX_CAROUSEL)) {
       Get.toNamed(
         '/carousel',
@@ -254,7 +336,8 @@ class Utils {
       if (!needConvert) {
         onOpenLink(url, title, true);
       } else {
-        if (url.startsWith(Constants.PREFIX_HTTP)) {
+        if ((originalUri.scheme == 'http' || originalUri.scheme == 'https') &&
+            originalUri.host.isNotEmpty) {
           if (isSupportWebview() && !GStorage.openInBrowser) {
             Get.toNamed('/webview', parameters: {'url': url});
           } else {

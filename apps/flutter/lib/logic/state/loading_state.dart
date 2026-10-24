@@ -4,7 +4,7 @@ abstract class LoadingState<T> {
   factory LoadingState.loading() = Loading;
   factory LoadingState.empty() = Empty;
   factory LoadingState.success(T response) = Success<T>;
-  factory LoadingState.error(String errMsg) = Error;
+  factory LoadingState.error(String errMsg, {bool canVerify}) = Error;
 }
 
 class Loading extends LoadingState<Never> {
@@ -23,5 +23,6 @@ class Success<T> extends LoadingState<T> {
 
 class Error extends LoadingState<Never> {
   final String errMsg;
-  const Error(this.errMsg);
+  final bool canVerify;
+  const Error(this.errMsg, {this.canVerify = false});
 }

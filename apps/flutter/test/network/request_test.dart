@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:c001apk_flutter/logic/network/network_repo.dart';
 import 'package:c001apk_flutter/logic/network/request.dart';
+import 'package:c001apk_flutter/logic/network/interceptor.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
 import 'package:c001apk_flutter/utils/global_data.dart';
 import 'package:dio/dio.dart';
@@ -80,6 +81,28 @@ void main() {
     await Hive.close();
     await directory.delete(recursive: true);
   });
+  test('public feed strips mixed-case cookies from immutable headers',
+      () async {
+    final dio = Dio();
+    dio.httpClientAdapter = adapter;
+    dio.interceptors.add(InterceptorsWrapper(onRequest: (options, handler) {
+      options.headers = Map<String, dynamic>.unmodifiable({
+        'cOoKiE': 'synthetic-private-session',
+        'Accept': 'application/json',
+      });
+      handler.next(options);
+    }));
+    dio.interceptors.add(ApiInterceptor());
+    await dio.get('https://www.coolapk.com/feed/123');
+    final request = adapter.requests.single;
+    expect(request.headers.keys.map((key) => key.toLowerCase()),
+        isNot(contains('cookie')));
+    expect(request.headers['X-App-Token'], startsWith('v3'));
+    expect(request.responseType, ResponseType.plain);
+    expect(request.extra, isNot(contains('apiSessionContext')));
+    dio.close();
+  });
+
   test('concurrent account and API requests select their own headers',
       () async {
     await Future.wait([

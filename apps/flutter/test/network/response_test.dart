@@ -24,6 +24,29 @@ void main() {
     await Hive.close();
     await temp.delete(recursive: true);
   });
+  for (final path in ['/v6/apk/detail', '/v6/feed/detail']) {
+    for (final status in [-2, -1]) {
+      test(
+          'not-listed message is limited to APK detail status -2 ($path/$status)',
+          () {
+        final result = Response<dynamic>(
+          requestOptions: RequestOptions(path: path),
+          statusCode: 200,
+          data: {'status': status, 'message': '应用不存在或未上架'},
+        );
+        expect(
+            () => readApiObject(result),
+            throwsA(isA<ApiFailure>().having(
+              (error) => error.message,
+              'safe message',
+              path == '/v6/apk/detail' && status == -2
+                  ? '该应用未在酷安上架'
+                  : '服务器未能完成请求，请稍后重试',
+            )));
+      });
+    }
+  }
+
   test(
       'search listCard containers expose renderable children and keep blocking',
       () async {

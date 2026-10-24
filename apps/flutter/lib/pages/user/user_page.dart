@@ -261,7 +261,7 @@ class _UserPageState extends State<UserPage> {
                               _userController.uid, ShareType.u));
                           break;
                         case UserMenuItem.Share:
-                          Share.share(Utils.getShareUrl(
+                          Share.share(Utils.getShareText(
                               _userController.uid, ShareType.u));
                           break;
                         case UserMenuItem.Block:

@@ -514,27 +514,48 @@ class NetworkRepo {
       final failure = ApiFailure.fromError(error);
       if (verify) {
         if (captchaVerification == 'cancelled') {
-          return LoadingState.error('已取消验证，正文仍可阅读');
+          return LoadingState.error('已取消验证，可重试或导入官方设备标识', canVerify: true);
         }
         if (captchaVerification == 'submitted' &&
             failure.kind == ApiFailureKind.captcha) {
-          return LoadingState.error('验证已完成，但服务端仍未允许读取账号信息，请稍后重试');
+          return LoadingState.error('验证已完成，但服务端仍未允许读取详情，可稍后重试或导入官方设备标识',
+              canVerify: true);
         }
-        return LoadingState.error(failure.message);
+        return LoadingState.error(failure.message,
+            canVerify: failure.kind == ApiFailureKind.captcha ||
+                failure.kind == ApiFailureKind.authentication);
       }
       if ([ApiFailureKind.captcha, ApiFailureKind.authentication]
           .contains(failure.kind)) {
-        final public = await getData(() => Request().get(
-              '${Constants.URL_COOLAPK}feed/$id',
-              options: Options(responseType: ResponseType.plain),
-            ));
-        if (public is Success) {
-          final data = public.response as Datum;
-          // A public response cannot establish this account's like state.
-          data.userAction = null;
-          return Success(data, isPublic: true);
+        try {
+          final publicResponse = await Request().get(
+            '${Constants.URL_COOLAPK}feed/$id',
+            options: Options(responseType: ResponseType.plain),
+          );
+          // The official web endpoint can stop serving its JSON representation
+          // and return an app-only landing page. That page has no feed body;
+          // keep the original access reason instead of treating it as bad JSON.
+          final body = publicResponse.data;
+          if (body is String &&
+              body.trimLeft().startsWith('<') &&
+              body.contains('请用酷安手机APP扫码查看详情')) {
+            return LoadingState.error(
+                failure.kind == ApiFailureKind.captcha
+                    ? '当前设备需要验证，公开分享页暂不提供正文。可重试验证，或导入官方设备标识后重试。'
+                    : '此内容需要登录，公开分享页暂不提供正文。可重试或检查登录状态。',
+                canVerify: true);
+          }
+          final public = await handleDataResponse(publicResponse);
+          if (public is Success) {
+            final data = public.response as Datum;
+            // A public response cannot establish this account's like state.
+            data.userAction = null;
+            return Success(data, isPublic: true);
+          }
+          return public;
+        } catch (publicError) {
+          return LoadingState.error(ApiFailure.fromError(publicError).message);
         }
-        return public;
       }
       return LoadingState.error(failure.message);
     }
