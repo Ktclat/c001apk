@@ -74,3 +74,7 @@ Flutter 页面和酷安多账号会话逻辑在本项目独立实现，沿用既
 
 ## 内置中文字体（OFL-1.1）
 本项目新增的 Noto Sans CJK SC（Regular/Medium/Bold）来自 [CodePlayer/webfont-noto](https://github.com/CodePlayer/webfont-noto/tree/7af038d32866b387c64ef8e644abf5c303e48db6/dist/NotoSans/NotoSansCJKsc-hinted/subset/NotoSansCJKsc-hinted-standard)，字体原作发布于 Noto 项目，采用 SIL Open Font License 1.1。完整许可见 [OFL.txt](../apps/flutter/assets/fonts/OFL.txt)。构建时从固定提交下载原样 OTF 字体子集并比对 Git blob SHA，运行时不下载字体。字体仍按 OFL 许可分发。
+
+## Markdown detail parser
+
+The detail renderer uses the Dart team's `markdown` package, pinned to 7.3.1 (BSD-3-Clause), and `characters` 1.4.1 (BSD-3-Clause) for Unicode grapheme boundaries. Package licenses remain available through Flutter's license registry. Upstream behavior reference is TG-Twilight/c001apk commit `98526cc30cc6ed5d96fc4bed32ee03dfc92b7024`; the existing project AGPL-3.0 license and author attributions are unchanged.

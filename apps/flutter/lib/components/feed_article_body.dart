@@ -11,29 +11,36 @@ import '../utils/utils.dart';
 Widget feedArticleBody(
   double maxWidth,
   FeedArticle data,
-  List<String> picArr,
-) {
+  List<String> picArr, {
+  Widget? detailBody,
+  Widget? detailTitle,
+  Widget? detailDescription,
+  bool Function()? isCurrent,
+}) {
   switch (data.type) {
     case 'title':
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: htmlText(
-          data.title.orEmpty,
-          role: HtmlTextRole.articleTitle,
-        ),
+        child: detailTitle ??
+            htmlText(
+              data.title.orEmpty,
+              role: HtmlTextRole.articleTitle,
+            ),
       );
     case 'text':
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: GestureDetector(
           onLongPress: () {
+            if (isCurrent?.call() == false) return;
             Get.toNamed('/copy', parameters: {'text': data.message.orEmpty});
             HapticFeedback.mediumImpact();
           },
-          child: htmlText(
-            data.message.orEmpty,
-            role: HtmlTextRole.articleBody,
-          ),
+          child: detailBody ??
+              htmlText(
+                data.message.orEmpty,
+                role: HtmlTextRole.articleBody,
+              ),
         ),
       );
     case 'image':
@@ -47,17 +54,19 @@ Widget feedArticleBody(
               picArr,
               isFeedArticle: true,
               articleImg: data.url.orEmpty,
+              isCurrent: isCurrent,
             ),
             if (!data.description.isNullOrEmpty) ...[
               const SizedBox(height: 4),
-              Text(
-                data.description!,
-                style: TextStyle(
-                  fontSize: 14,
-                  color: Theme.of(Get.context!).colorScheme.outline,
-                ),
-                textAlign: TextAlign.center,
-              ),
+              detailDescription ??
+                  Text(
+                    data.description!,
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: Theme.of(Get.context!).colorScheme.outline,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
             ]
           ],
         ),
@@ -66,7 +75,10 @@ Widget feedArticleBody(
       return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: InkWell(
-          onTap: () => Utils.onOpenLink(data.url.orEmpty),
+          onTap: () {
+            if (isCurrent?.call() == false) return;
+            Utils.onOpenLink(data.url.orEmpty);
+          },
           borderRadius: const BorderRadius.all(Radius.circular(12)),
           child: Ink(
             width: double.infinity,
@@ -75,7 +87,7 @@ Widget feedArticleBody(
               color: Theme.of(Get.context!).colorScheme.onInverseSurface,
             ),
             padding: const EdgeInsets.all(10),
-            child: Text(data.title.orEmpty),
+            child: detailTitle ?? Text(data.title.orEmpty),
           ),
         ),
       );

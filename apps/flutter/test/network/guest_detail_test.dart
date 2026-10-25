@@ -12,6 +12,8 @@ import 'package:c001apk_flutter/utils/app_theme.dart';
 import 'package:c001apk_flutter/logic/network/request.dart';
 import 'package:c001apk_flutter/logic/state/loading_state.dart';
 import 'package:c001apk_flutter/pages/feed/feed_controller.dart';
+import 'package:c001apk_flutter/components/markdown_body.dart';
+import 'package:c001apk_flutter/logic/accounts/account_store.dart';
 import 'package:c001apk_flutter/pages/feed/feed_page.dart';
 import 'package:c001apk_flutter/utils/global_data.dart';
 import 'package:c001apk_flutter/utils/storage_util.dart';
@@ -27,6 +29,7 @@ class GuestDetailAdapter implements HttpClientAdapter {
   final requests = <RequestOptions>[];
   final detailServed = Completer<void>();
   Future<void> Function()? beforeReply;
+  Future<void> Function()? beforeDetail;
   dynamic replyBody = {'data': []};
   Map<String, dynamic> apiBody = {
     'code': 403,
@@ -53,6 +56,7 @@ class GuestDetailAdapter implements HttpClientAdapter {
       Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
     requests.add(options);
     if (options.uri.path == '/v6/feed/replyList') await beforeReply?.call();
+    if (options.uri.path == '/v6/feed/detail') await beforeDetail?.call();
     if (options.uri.path == '/v6/feed/detail' && !detailServed.isCompleted) {
       detailServed.complete();
     }
@@ -402,8 +406,10 @@ void main() {
     // tonalIcon creates a private FilledButton subclass. byType(FilledButton)
     // is exact-type matching and can never find this actual production button.
     final action = find.text('加载评论并验证');
+    final outerController = tester.widget<CustomScrollView>(find.byType(CustomScrollView)).controller;
     final scrollable = find.descendant(
-        of: find.byType(CustomScrollView), matching: find.byType(Scrollable));
+        of: find.byType(CustomScrollView),
+        matching: find.byWidgetPredicate((widget) => widget is Scrollable && widget.controller == outerController));
     expect(scrollable, findsOneWidget);
     expect(action.hitTestable(), findsNothing);
     await tester.scrollUntilVisible(action, 400,
@@ -726,4 +732,305 @@ void main() {
       expect(result.errMsg, isNot(contains('正文仍可阅读')));
     });
   }
+
+  Future<void> awaitMarkdown(WidgetTester tester) async {
+    for (var i = 0; i < 100; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump();
+      final texts = tester.widgetList<FeedText>(find.byType(FeedText));
+      if (texts.isNotEmpty && texts.every((text) => text.content != null) &&
+          find.text('正在准备原文分段…').evaluate().isEmpty &&
+          find.descendant(of: find.byType(FeedText),
+              matching: find.byType(CircularProgressIndicator)).evaluate().isEmpty &&
+          find.descendant(of: find.byType(FeedText), matching: find.byType(RichText)).evaluate().isNotEmpty) {
+        return;
+      }
+    }
+    fail('Detail parser did not publish within its bounded worker lifetime');
+  }
+
+  testWidgets(
+    'actual detail overflow toggles exact source without fetching replies',
+    (tester) async {
+      const source = '# 合成标题\r\n\r\n**中文正文** 👩🏽‍💻 <!--break-->';
+      adapter.apiBody = {
+        'data': {...adapter.webBody['data'], 'message': source},
+      };
+      await showFeed(tester, adapter);
+      await awaitMarkdown(tester);
+      await tester.tap(find.byType(PopupMenuButton<FeedMenuItem>));
+      await tester.pumpAndSettle();
+      expect(find.text('查看原文'), findsOneWidget);
+      await tester.tap(find.text('查看原文'));
+      await tester.pumpAndSettle();
+      expect(find.byType(FeedText), findsNothing);
+      expect(find.text('原始正文'), findsOneWidget);
+      expect(
+        tester.widget<SelectableText>(find.byType(SelectableText)).data,
+        source,
+      );
+      await tester.tap(find.byType(PopupMenuButton<FeedMenuItem>));
+      await tester.pumpAndSettle();
+      expect(find.text('格式化显示'), findsOneWidget);
+      await tester.tap(find.text('格式化显示'));
+      await awaitMarkdown(tester);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<FeedText>(find.byType(FeedText)).forcePlain,
+        isFalse,
+      );
+      expect(
+        adapter.requests.where((r) => r.uri.path.endsWith('/replyList')),
+        isEmpty,
+      );
+      expect(
+        adapter.requests.where((r) => r.uri.path.endsWith('/detail')),
+        hasLength(1),
+      );
+    },
+  );
+
+  testWidgets(
+    'account replacement clears raw source without an automatic reload',
+    (tester) async {
+      final source = '# 旧账号正文\n\n${List.filled(40, '合成正文。\n\n').join()}';
+      adapter.apiBody = {
+        'data': {...adapter.webBody['data'], 'message': source},
+      };
+      await showFeed(tester, adapter);
+      await awaitMarkdown(tester);
+      await tester.tap(find.byType(PopupMenuButton<FeedMenuItem>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('查看原文'));
+      await tester.pumpAndSettle();
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -350));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<CustomScrollView>(find.byType(CustomScrollView))
+            .controller!
+            .offset,
+        greaterThan(50),
+      );
+      final requests = adapter.requests.length;
+      GlobalData().sessionGeneration++;
+      GlobalData().uid = 'new-synthetic-account';
+      GlobalData().isLogin = true;
+      AccountStore.changes.value++;
+      await tester.pumpAndSettle();
+      expect(find.byType(FeedText), findsNothing);
+      expect(find.text('账号已切换，请重新打开详情'), findsOneWidget);
+      expect(adapter.requests, hasLength(requests));
+      expect(find.byType(PopupMenuButton<FeedMenuItem>), findsNothing);
+      expect(find.text('合成作者'), findsNothing);
+      expect(tester.takeException(), isNull);
+      adapter.apiBody = {
+        'data': {...adapter.webBody['data'], 'message': '# 新账号正文'},
+      };
+      await tester.tap(find.text('重试'));
+      await tester.pumpAndSettle();
+      await awaitMarkdown(tester);
+      final body = tester.widget<FeedText>(find.byType(FeedText));
+      expect(body.source, '# 新账号正文');
+      expect(body.forcePlain, isFalse);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      GlobalData().sessionGeneration++;
+      GlobalData().isLogin = false;
+      GlobalData().uid = '';
+      AccountStore.changes.value++;
+      await tester.pumpAndSettle();
+      expect(find.byType(FloatingActionButton), findsNothing);
+      expect(find.byType(FeedText), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('ordinary detail does not offer an inapplicable source menu', (
+    tester,
+  ) async {
+    adapter.apiBody = {'data': adapter.webBody['data']};
+    await showFeed(tester, adapter);
+    await awaitMarkdown(tester);
+    await tester.tap(find.byType(PopupMenuButton<FeedMenuItem>));
+    await tester.pumpAndSettle();
+    expect(find.text('查看原文'), findsNothing);
+    expect(find.text('复制'), findsOneWidget);
+  });
+
+  test(
+    'stale detail response cannot publish source into a new account generation',
+    () async {
+      final original = adapter.apiBody;
+      final started = Completer<void>(), released = Completer<void>();
+      // The public fallback transport is held while the account owner changes.
+      adapter.beforeDetail = () async {
+        started.complete();
+        await released.future;
+      };
+      adapter.apiBody = {'data': adapter.webBody['data']};
+      final controller = FeedController(id: '123', recordHistory: false);
+      final pending = controller.getFeedData();
+      await started.future;
+      GlobalData().sessionGeneration++;
+      released.complete();
+      await pending;
+      expect(controller.feedState.value, isA<Error>());
+      expect(controller.bodySnapshot.value, isNull);
+      controller.onClose();
+      adapter.apiBody = original;
+    },
+  );
+
+  testWidgets(
+    'structured article publishes formatting and raw fields remain exact/inert',
+    (tester) async {
+      const raw = '[  {"type":"text","message":"# 文章标题\\n\\n**正文**"}, '
+          '{"type":"shareUrl","title":"资料","url":"https://example.com"}  ]';
+      adapter.apiBody = {
+        'data': {
+          ...adapter.webBody['data'],
+          'title': '原始标题 &amp; 👩🏽‍💻',
+          'message_cover': null,
+          'message_raw_output': raw,
+        },
+      };
+      await showFeed(tester, adapter);
+      // No menu opening or scrolling: the outer reactive subscription must
+      // rebuild lazily-created article text when the worker publishes.
+      await awaitMarkdown(tester);
+      expect(tester.widgetList<FeedText>(find.byType(FeedText)), isNotEmpty);
+      expect(tester.widgetList<FeedText>(find.byType(FeedText))
+          .every((text) => text.content != null), isTrue);
+      expect(find.text('正在准备排版，暂显示原文'), findsNothing);
+      await tester.tap(find.byType(PopupMenuButton<FeedMenuItem>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('查看原文'));
+      await tester.pumpAndSettle();
+      expect(find.text('原始结构化正文（JSON）'), findsOneWidget);
+      expect(find.text('服务端未提供此字段'), findsOneWidget);
+      final rawTexts = tester
+          .widgetList<SelectableText>(find.byType(SelectableText))
+          .map((w) => w.data);
+      expect(rawTexts, contains(raw));
+      expect(rawTexts, contains('原始标题 &amp; 👩🏽‍💻'));
+      expect(find.text('资料'), findsNothing);
+      expect(find.byType(Image), findsNothing);
+      expect(
+        adapter.requests.where((r) => r.uri.host == 'example.com'),
+        isEmpty,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'raw page two and its independent pixel offset survive format round trip',
+    (tester) async {
+      final source =
+          '# 标题\n\n${List.filled(400, '中文正文连续内容。👩🏽‍💻\n\n').join()}';
+      expect(source.length, greaterThan(4000));
+      adapter.apiBody = {
+        'data': {...adapter.webBody['data'], 'message': source},
+      };
+      await showFeed(tester, adapter);
+      await awaitMarkdown(tester);
+      await tester.pumpAndSettle();
+      final scroll = tester.widget<CustomScrollView>(find.byType(CustomScrollView)).controller!;
+      scroll.jumpTo(80);
+      await tester.pumpAndSettle();
+      final formattedOffset = scroll.offset;
+      expect(formattedOffset, greaterThan(50));
+      await tester.tap(find.byType(PopupMenuButton<FeedMenuItem>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('查看原文'));
+      await tester.pump();
+      Future<void> waitForPage() async {
+        for (var i = 0; i < 100; i++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 20)),
+          );
+          await tester.pump();
+          if (find.byType(SelectableText).evaluate().isNotEmpty) return;
+        }
+        fail('Raw page did not prepare');
+      }
+
+      await waitForPage();
+      await tester.ensureVisible(find.text('下一段'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('下一段'));
+      await tester.pump();
+      await waitForPage();
+      final second =
+          tester.widget<SelectableText>(find.byType(SelectableText)).data;
+      await tester.pump();
+      expect(
+        tester.getTopLeft(find.byType(SelectableText)).dy,
+        lessThan(150),
+        reason:
+            'Next raw page must reveal its beginning, not retain the previous page bottom',
+      );
+      scroll.jumpTo(120);
+      await tester.pumpAndSettle();
+      final offset = scroll.offset;
+      expect(offset, greaterThan(50));
+      await tester.tap(find.byType(PopupMenuButton<FeedMenuItem>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('格式化显示'));
+      await awaitMarkdown(tester);
+      await tester.pumpAndSettle();
+      expect(scroll.offset, closeTo(formattedOffset, 1));
+      await tester.tap(find.byType(PopupMenuButton<FeedMenuItem>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('查看原文'));
+      await tester.pump();
+      await waitForPage();
+      await tester.pumpAndSettle();
+      expect(find.text('原文第 2 段'), findsOneWidget);
+      expect(
+        tester.widget<SelectableText>(find.byType(SelectableText)).data,
+        second,
+      );
+      expect(scroll.offset, closeTo(offset, 1));
+      expect(tester.takeException(), isNull);
+    },
+  );
+  test('same-body metadata refresh retains raw position, changed body clears it', () async {
+    adapter.apiBody = {'data': {...adapter.webBody['data'], 'message': '# 原始正文'}};
+    final controller = FeedController(id: '123', recordHistory: false);
+    await controller.getFeedData();
+    final original = controller.bodySnapshot.value!;
+    final position = controller.sourcePositionFor('@raw:message');
+    position.offsets.add(20); position.splitEnds.add(0); position.index = 1;
+    adapter.apiBody = {'data': {...adapter.webBody['data'], 'message': '# 原始正文', 'likenum': 12}};
+    await controller.getFeedData();
+    expect(controller.bodySnapshot.value!.sameBody(original), isTrue);
+    expect(controller.sourcePositionFor('@raw:message'), same(position));
+    expect(position.index, 1);
+    adapter.apiBody = {'data': {...adapter.webBody['data'], 'message': '# 更新正文'}};
+    await controller.getFeedData();
+    expect(controller.bodySnapshot.value!.sameBody(original), isFalse);
+    expect(controller.sourcePositionFor('@raw:message').index, 0);
+    expect(controller.sourcePositionFor('@raw:message'), isNot(same(position)));
+    controller.onClose();
+  });
+
+  testWidgets('account changes before a queued source-layout callback cannot restore old content', (tester) async {
+    adapter.apiBody = {'data': {...adapter.webBody['data'], 'message': '# 原始正文'}};
+    await showFeed(tester, adapter);
+    await awaitMarkdown(tester);
+    final menu = tester.widget<PopupMenuButton<FeedMenuItem>>(find.byType(PopupMenuButton<FeedMenuItem>));
+    menu.onSelected!(FeedMenuItem.Source);
+    GlobalData().sessionGeneration++;
+    AccountStore.changes.value++;
+    await tester.pumpAndSettle();
+    expect(find.byType(RawSourceText), findsNothing);
+    expect(find.byType(FeedText), findsNothing);
+    expect(find.byType(PopupMenuButton<FeedMenuItem>), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
 }

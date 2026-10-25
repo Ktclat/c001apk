@@ -15,6 +15,7 @@ Widget image(
   bool isFeedArticle = false,
   String? articleImg,
   MediaImageProviderBuilder? imageProviderBuilder,
+  bool Function()? isCurrent,
 }) {
   double imageWidth = (maxWidth - 2 * 5) / 3;
   double imageHeight = imageWidth;
@@ -39,6 +40,7 @@ Widget image(
     final tile = GestureDetector(
       behavior: isFeedArticle ? null : HitTestBehavior.opaque,
       onTap: () {
+        if (isCurrent?.call() == false) return;
         Map<dynamic, dynamic> arguments = {
           "imgList": picArr,
           "initialPage": isFeedArticle ? picArr.indexOf(articleImg!) : index,

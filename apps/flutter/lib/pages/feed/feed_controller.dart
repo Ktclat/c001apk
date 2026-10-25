@@ -1,7 +1,12 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:get/get.dart';
 
+import '../../logic/accounts/account_store.dart';
+import '../../logic/reading/detail_body_snapshot.dart';
+import '../../logic/reading/detail_parse_job.dart';
+import '../../logic/reading/markdown_content.dart';
 import '../../logic/model/fav_history/fav_history.dart';
 import '../../logic/model/feed/datum.dart';
 import '../../logic/model/feed/user_action.dart';
@@ -42,6 +47,104 @@ class FeedController extends CommonController {
   final isLoadingDetail = false.obs;
   bool isFav = false;
   bool isBlocked = false;
+
+  final bodySnapshot = Rx<DetailBodySnapshot?>(null);
+  final _sourcePositions = <String, RawSourcePosition>{};
+  RawSourcePosition sourcePositionFor(String key) =>
+      _sourcePositions.putIfAbsent(key, RawSourcePosition.new);
+  final _bodyJob = DetailParseJob<Map<String, MarkdownContent>>();
+
+  /// GlobalData changes before AccountStore's asynchronous persistence/notifier.
+  /// Every action must consult the actual current owner, not only that notifier.
+  Success? get ownedFeed {
+    final snapshot = bodySnapshot.value;
+    final state = feedState.value;
+    return !isClosed &&
+            state is Success &&
+            snapshot != null &&
+            snapshot.belongsTo(GlobalData().uid, GlobalData().sessionGeneration)
+        ? state
+        : null;
+  }
+
+  void _accountChanged() {
+    _bodyJob.cancel();
+    _sourcePositions.clear();
+    bodySnapshot.value = null;
+    articleList = null;
+    articleImgList = null;
+    topReply = null;
+    _replyMe = null;
+    feedTypeName = null;
+    feedUid = null;
+    feedUsername = null;
+    replyNum = null;
+    isFav = false;
+    isBlocked = false;
+    accountDetailNotice.value = '';
+    feedState.value = LoadingState.error('账号已切换，请重新打开详情');
+    loadingState.value = LoadingState.empty();
+    footerState.value = LoadingState.empty();
+  }
+
+  void _prepareBody(Datum data, List<FeedArticle> articles,
+      {required bool structured}) {
+    final global = GlobalData();
+    final snapshot = DetailBodySnapshot(
+      account: global.uid,
+      generation: global.sessionGeneration,
+      feedId: id,
+      originalBody:
+          structured ? data.messageRawOutput.orEmpty : data.message.orEmpty,
+      rawFields: !structured
+          ? {'message': data.message}
+          : {
+              'title': data.title,
+              'message_cover': data.messageCover,
+              'message_raw_output': data.messageRawOutput,
+            },
+      sources: articles.isEmpty
+          ? {'body': data.message.orEmpty}
+          : {
+              for (var i = 0; i < articles.length; i++) ...{
+                if (articles[i].type == 'text')
+                  'article:$i': articles[i].message.orEmpty,
+                if (articles[i].type == 'title')
+                  'article:$i:title': articles[i].title.orEmpty,
+                if (articles[i].type == 'shareUrl')
+                  'article:$i:label': articles[i].title.orEmpty,
+                if (articles[i].type == 'image' &&
+                    articles[i].description != null)
+                  'article:$i:description': articles[i].description!,
+              },
+            },
+    );
+    if (bodySnapshot.value?.sameBody(snapshot) == true) return;
+    _sourcePositions.clear();
+    bodySnapshot.value = snapshot;
+    unawaited(
+      _bodyJob.run(parseDetailBodies, snapshot.sources).then((result) {
+        if (isClosed ||
+            !identical(bodySnapshot.value, snapshot) ||
+            !snapshot.belongsTo(
+              GlobalData().uid,
+              GlobalData().sessionGeneration,
+            )) {
+          return;
+        }
+        bodySnapshot.value = snapshot.prepared(
+          result ??
+              {
+                for (final entry in snapshot.sources.entries)
+                  entry.key: MarkdownContent.fallback(
+                    entry.value,
+                    '排版超时或暂不可用，已保留完整原文',
+                  ),
+              },
+        );
+      }),
+    );
+  }
 
   Rx<ReplySortType> replySelection = ReplySortType.def.obs;
 
@@ -132,9 +235,14 @@ class FeedController extends CommonController {
   Future<void> getFeedData({bool verify = false}) async {
     if (isLoadingDetail.value) return;
     final previous = feedState.value;
+    final owner = (GlobalData().uid, GlobalData().sessionGeneration);
     isLoadingDetail.value = true;
     try {
       await _loadFeedData(verify: verify);
+      if (isClosed ||
+          owner != (GlobalData().uid, GlobalData().sessionGeneration)) {
+        return;
+      }
       final result = feedState.value;
       if (verify && result is! Success) {
         accountDetailNotice.value =
@@ -150,25 +258,37 @@ class FeedController extends CommonController {
   }
 
   Future<void> _loadFeedData({required bool verify}) async {
-    LoadingState<dynamic> response =
-        await NetworkRepo.getFeedDetail(id: id, verify: verify);
+    final owner = (GlobalData().uid, GlobalData().sessionGeneration);
+    LoadingState<dynamic> response = await NetworkRepo.getFeedDetail(
+      id: id,
+      verify: verify,
+    );
+    if (isClosed) return;
+    if (owner != (GlobalData().uid, GlobalData().sessionGeneration)) {
+      _accountChanged();
+      return;
+    }
     if (response is Success) {
       Datum data = (response.response as Datum);
       List<FeedArticle> nextArticles = [];
+      var structured = false;
       List<String> nextImages = [];
       try {
         if (!data.messageRawOutput.isNullOrEmpty &&
             data.messageRawOutput != 'null') {
           List<dynamic> jsonList = jsonDecode(data.messageRawOutput!);
+          structured = jsonList.isNotEmpty;
           nextArticles = jsonList
               .map((json) => FeedArticle.fromJson(json))
               .where(
-                  (item) => ['text', 'image', 'shareUrl'].contains(item.type))
+                (item) => ['text', 'image', 'shareUrl'].contains(item.type),
+              )
               .toList();
         }
       } catch (error) {
-        feedState.value =
-            LoadingState.error(ApiFailure.fromError(error).message);
+        feedState.value = LoadingState.error(
+          ApiFailure.fromError(error).message,
+        );
         return;
       }
       // A public normal feed also has a summary title. Only attach article
@@ -179,13 +299,16 @@ class FeedController extends CommonController {
         }
         if (!data.messageCover.isNullOrEmpty) {
           nextArticles.insert(
-              0, FeedArticle(type: 'image', url: data.messageCover));
+            0,
+            FeedArticle(type: 'image', url: data.messageCover),
+          );
         }
         nextImages = nextArticles
             .where((item) => item.type == 'image')
             .map((item) => item.url.orEmpty)
             .toList();
       }
+      _prepareBody(data, nextArticles, structured: structured);
       articleList = nextArticles;
       articleImgList = nextImages;
       topReply = data.topReplyRows?.firstOrNull;
@@ -207,7 +330,9 @@ class FeedController extends CommonController {
   }
 
   void onFav() {
-    Datum data = (feedState.value as Success).response;
+    final current = ownedFeed;
+    if (current == null) return;
+    Datum data = current.response;
     GStorage.favFeed.put(id, getFeed(data));
   }
 
@@ -229,10 +354,21 @@ class FeedController extends CommonController {
   @override
   void onInit() {
     super.onInit();
+    AccountStore.changes.addListener(_accountChanged);
     getFeedData();
   }
 
+  @override
+  void onClose() {
+    AccountStore.changes.removeListener(_accountChanged);
+    _bodyJob.dispose();
+    _sourcePositions.clear();
+    bodySnapshot.value = null;
+    super.onClose();
+  }
+
   void onBlockReply(dynamic uid, dynamic id) {
+    if (ownedFeed == null || loadingState.value is! Success) return;
     List<Datum> replyList = (loadingState.value as Success).response;
     if (id != null) {
       replyList = replyList.map((reply) {
@@ -256,20 +392,25 @@ class FeedController extends CommonController {
     if (page == 1 && listType == 'lastupdate_desc') {
       filterList = [
             if (topReply != null) topReply!,
-            if (_replyMe != null) _replyMe!,
+            if (_replyMe != null) _replyMe!
           ] +
           filterList;
     }
-    List<String> userBlackList = GStorage.blackList
-        .get(BlackListBoxKey.userBlackList, defaultValue: <String>[]);
+    List<String> userBlackList = GStorage.blackList.get(
+      BlackListBoxKey.userBlackList,
+      defaultValue: <String>[],
+    );
     return filterList
-        .map((data) => data
-          ..replyRows = !data.replyRows.isNullOrEmpty
-              ? data.replyRows!
-                  .where(
-                      (reply) => !userBlackList.contains(reply.uid.toString()))
-                  .toList()
-              : null)
+        .map(
+          (data) => data
+            ..replyRows = !data.replyRows.isNullOrEmpty
+                ? data.replyRows!
+                    .where(
+                      (reply) => !userBlackList.contains(reply.uid.toString()),
+                    )
+                    .toList()
+                : null,
+        )
         .toList();
   }
 
@@ -292,14 +433,39 @@ class FeedController extends CommonController {
   }
 
   @override
+  Future<void> onLike(
+    dynamic id,
+    dynamic like, {
+    bool isFeed = false,
+    bool isReply = false,
+    bool Function()? isCurrent,
+  }) async {
+    final expected = bodySnapshot.value;
+    if (ownedFeed == null || expected == null) return;
+    bool current() {
+      final actual = bodySnapshot.value;
+      return ownedFeed != null &&
+          actual != null &&
+          expected.sameBody(actual) &&
+          (isCurrent?.call() ?? true);
+    }
+
+    await super
+        .onLike(id, like, isFeed: isFeed, isReply: isReply, isCurrent: current);
+  }
+
+  @override
   bool handleLike(dynamic like, dynamic likenum) {
-    Datum data = (feedState.value as Success).response;
-    final isPublic = (feedState.value as Success).isPublic;
+    final current = ownedFeed;
+    if (current == null) return true; // Consume, do not mutate reply state.
+    Datum data = current.response;
+    final isPublic = current.isPublic;
     feedState.value = Success(
-        data
-          ..likenum = likenum
-          ..userAction = UserAction(like: like == 1 ? 0 : 1),
-        isPublic: isPublic);
+      data
+        ..likenum = likenum
+        ..userAction = UserAction(like: like == 1 ? 0 : 1),
+      isPublic: isPublic,
+    );
     return true;
   }
 }

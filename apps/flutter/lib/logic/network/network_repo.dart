@@ -136,6 +136,7 @@ class NetworkRepo {
     dynamic id,
     dynamic uid,
     FormData? data,
+    bool silentError = false,
   }) async {
     final isLike = [
       '/v6/feed/like',
@@ -152,8 +153,11 @@ class NetworkRepo {
       },
       data: isLike ? {'trace': ''} : data,
       options: isLike
-          ? Options(contentType: Headers.formUrlEncodedContentType)
-          : null,
+          ? Options(
+              contentType: Headers.formUrlEncodedContentType,
+              extra: {'silentError': silentError},
+            )
+          : (silentError ? Options(extra: {'silentError': true}) : null),
     );
   }
 

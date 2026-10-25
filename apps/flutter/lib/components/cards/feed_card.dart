@@ -21,6 +21,7 @@ class FeedCard extends StatelessWidget {
     required this.data,
     this.isFeedContent = false,
     this.isHistory = false,
+    this.detailBody,
     this.onDelete,
     this.onBlock,
     this.onLike,
@@ -29,6 +30,7 @@ class FeedCard extends StatelessWidget {
   final Datum data;
   final bool isFeedContent;
   final bool isHistory;
+  final Widget? detailBody;
   final Function(dynamic id)? onDelete;
   final Function(dynamic uid)? onBlock;
   final Function(dynamic id, dynamic like)? onLike;
@@ -328,7 +330,7 @@ class FeedCard extends StatelessWidget {
           top: 5,
           right: isFeedContent ? 16 : 10,
         ),
-        child: htmlText(
+        child: (isFeedContent ? detailBody : null) ?? htmlText(
           data.message.orEmpty,
           role: HtmlTextRole.feedBody,
           onClick: _onViewFeed,

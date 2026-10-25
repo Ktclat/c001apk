@@ -173,15 +173,21 @@ abstract class CommonController extends GetxController {
     dynamic like, {
     bool isFeed = false,
     bool isReply = false,
+    bool Function()? isCurrent,
   }) async {
+    bool current() => isCurrent?.call() ?? true;
+    if (!current()) return;
     try {
       String isLike = isFeed
           ? (like == 1 ? 'unlike' : 'like')
           : (like == 1 ? 'unLikeReply' : 'likeReply');
       Response response =
-          await NetworkRepo.postLikeDeleteFollow('/v6/feed/$isLike', id: id);
+          await NetworkRepo.postLikeDeleteFollow('/v6/feed/$isLike',
+              id: id, silentError: isCurrent != null);
+      if (!current()) return;
       readApiObject(response);
       LoginResponse datum = LoginResponse.fromJson(response.data);
+      if (!current()) return;
       if (!datum.message.isNullOrEmpty) {
         SmartDialog.showToast(datum.message!);
       } else {
@@ -198,9 +204,11 @@ abstract class CommonController extends GetxController {
             return data;
           }
         }).toList();
+        if (!current()) return;
         loadingState.value = LoadingState.success(dataList);
       }
     } catch (e) {
+      if (!current()) return;
       SmartDialog.showToast(ApiFailure.fromError(e).message);
     }
   }

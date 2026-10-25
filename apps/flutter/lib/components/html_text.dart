@@ -18,7 +18,6 @@ enum HtmlTextRole {
   replyBody,
 }
 
-
 /// Render simple Markdown bold and normalize excessive empty paragraphs.
 /// HTML links and rich inline content remain intact.
 String normalizePostMarkup(String text) => text
@@ -62,11 +61,37 @@ Widget htmlText(
     );
   }
 
+  return _renderHtmlText(formatted,
+      fontSize: fontSize,
+      isBold: isBold,
+      role: role,
+      picArr: picArr,
+      onClick: onClick,
+      onShowTotalReply: onShowTotalReply,
+      onViewFan: onViewFan);
+}
+
+/// Detail-only sanitized, post-expansion and budget-checked HTML. No additional
+/// normalization or emoji expansion may happen after the caller's layout gate.
+Widget preparedDetailHtmlText(String formatted,
+        {required HtmlTextRole role, bool Function()? isCurrent}) =>
+    _renderHtmlText(formatted, role: role, isCurrent: isCurrent);
+
+Widget _renderHtmlText(String formatted,
+    {double fontSize = 15,
+    bool isBold = false,
+    HtmlTextRole role = HtmlTextRole.normal,
+    List<String>? picArr,
+    Function? onClick,
+    Function? onShowTotalReply,
+    Function? onViewFan,
+    bool Function()? isCurrent}) {
   final reading = GStorage.readingPreset;
 
   return HtmlWidget(
     formatted,
     onTapUrl: (url) {
+      if (isCurrent?.call() == false) return true;
       if (url.isEmpty) {
         if (onClick != null) {
           onClick();
@@ -92,8 +117,7 @@ Widget htmlText(
     textStyle: TextStyle(
       // HtmlWidget receives its own root text style. Match the font choice
       // used by Material widgets so feeds, articles and replies stay aligned.
-      fontFamily:
-          GStorage.fontChoice.familyForPlatform(defaultTargetPlatform),
+      fontFamily: GStorage.fontChoice.familyForPlatform(defaultTargetPlatform),
       fontFamilyFallback: const ['sans-serif'],
       locale: const Locale('zh', 'CN'),
       color: _bodyInk(role),
@@ -135,6 +159,7 @@ Widget htmlText(
       return null;
     },
     customWidgetBuilder: (element) {
+      if (isCurrent?.call() == false) return const SizedBox.shrink();
       switch (element.localName) {
         case 'img':
           {
