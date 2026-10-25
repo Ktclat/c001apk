@@ -126,3 +126,14 @@ Flutter 3.47.7 的官方 [AnalysisOptionsMigration](https://github.com/flutter/f
 - 三种包均实际签名校验；三种 Noto 字重的字节与原 pin 一致。以上是本地开发签名产物，不承诺覆盖既有安装，也不建议为解决签名冲突卸载或清除数据。
 
 本节是上述冻结门禁完成后添加的文档记录，没有再次改变生产、测试、构建或锁文件。最终远端提交仍需独立核对 CI 与产物来源；Android 7.0/小米真机安装、系统手势、IME、TalkBack、Impeller/GPU 和平台视图性能仍未验证。不能以截图或测试数量宣称整项迁移、真机顺滑度或功能对齐已经完成。
+
+
+## Published main CI91 verification — 2026-10-25
+
+The reviewed SDK + readable-shortcuts increment was pushed directly to main as `2aa5348790778c229f8fed647d2b92aae1143d74`, tree `c3db528e55c7b40e811a1d33aa1de34a15797c6a`. [CI91](https://github.com/Ktclat/c001apk/actions/runs/40183524416) completed successfully on attempt1; both jobs and all five APK builds/identity guards passed. The regression job confirmed 405 passed / 5 existing skips, isolated 1/13/2, diagnostic5, Python15, and 48 informational analysis findings with zero warnings/errors. All 698 pushed files matched the validated publication source.
+
+The APK inside the [normal arm64 artifact](https://github.com/Ktclat/c001apk/actions/runs/40183524416/artifacts/12594689786) is 42,483,732 bytes (the artifact ZIP is 25,856,498 bytes); APK SHA-256 `c9f68b427622275daa1271494fe2b3f6b769ca7787660e6291220c9e0167ef11`. Its identity is `io.github.ktclat.c001apk`, version0.1.0/code2001, min24/target34/compile36, arm64-only AOT without JIT kernels. GitHub archive byte/digest verification, APK signature, embedded source provenance, all 188 bundled app assets and all three Noto font hashes passed. This is the ordinary app, not the diagnostic package.
+
+The diagnostic arm64 APK was separately verified with `io.github.ktclat.c001apk.diagnostic.motion`, version0.1.0-diag, disabled backup and no external-link interception. Normal universal/arm64 builds were uploaded before diagnostic flags were enabled. CI debug signing differs from local builds; no overwrite-install compatibility or data-clearing workaround is promised.
+
+This closes the remote CI requirement for the SDK/shortcut increment only. Flutter Markdown/raw-detail work remains a separate candidate. Android7/Xiaomi device installation, system gestures, IME, TalkBack, Impeller/GPU/platform views and performance are still outside this verification. Earlier pending/failed sections are historical checkpoints, not a claim that their outcomes changed.
