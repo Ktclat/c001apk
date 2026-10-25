@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'navigation_tab_scrubber.dart';
+
 /// A root page replaced its content (including a transition to an empty list).
 /// Restore navigation without treating a programmatic jump as user scrolling.
 class RootNavigationContentChanged extends Notification {
@@ -135,33 +137,41 @@ class _FloatingTabBarState extends State<FloatingTabBar>
               ),
             ],
           ),
-          child: Material(
-            color: colors.surface,
-            clipBehavior: Clip.antiAlias,
-            shape: StadiumBorder(
-              side: BorderSide(
-                color: colors.outlineVariant.withOpacity(0.34),
-                width: 1,
+          child: NavigationTabScrubber(
+            destinations: widget.destinations,
+            selectedIndex: widget.selectedIndex,
+            onDestinationSelected: widget.onDestinationSelected,
+            contentPadding: const EdgeInsets.all(FloatingTabBar._innerPadding),
+            child: Material(
+              color: colors.surface,
+              clipBehavior: Clip.antiAlias,
+              shape: StadiumBorder(
+                side: BorderSide(
+                  color: colors.outlineVariant.withOpacity(0.34),
+                  width: 1,
+                ),
               ),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(FloatingTabBar._innerPadding),
-              child: Row(
-                children: [
-                  for (var index = 0;
-                      index < widget.destinations.length;
-                      index++)
-                    Expanded(
-                      child: _DockDestination(
-                        key: ValueKey('floating-tab-$index'),
-                        destination: widget.destinations[index],
-                        selected: widget.selectedIndex == index,
-                        selection: _selection,
-                        colorScheme: colors,
-                        onPressed: () => widget.onDestinationSelected(index),
+              child: Padding(
+                padding: const EdgeInsets.all(FloatingTabBar._innerPadding),
+                child: Row(
+                  children: [
+                    for (var index = 0;
+                        index < widget.destinations.length;
+                        index++)
+                      Expanded(
+                        child: _DockDestination(
+                          key: ValueKey('floating-tab-$index'),
+                          destination: widget.destinations[index],
+                          selected: widget.selectedIndex == index,
+                          selection: _selection,
+                          colorScheme: colors,
+                          onPressed: widget.destinations[index].enabled
+                              ? () => widget.onDestinationSelected(index)
+                              : null,
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -185,7 +195,7 @@ class _DockDestination extends StatelessWidget {
   final bool selected;
   final Animation<double> selection;
   final ColorScheme colorScheme;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
 
   static Animation<double> _pulse(
           Animation<double> parent, double stretch, double rebound) =>
@@ -215,6 +225,7 @@ class _DockDestination extends StatelessWidget {
       label: destination.label,
       selected: selected,
       button: true,
+      enabled: onPressed != null,
       onTap: onPressed,
       child: ExcludeSemantics(
         child: Tooltip(

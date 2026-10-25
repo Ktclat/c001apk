@@ -127,6 +127,7 @@ jobs:
             apps/flutter/build/review/motion/*.png
             apps/flutter/build/review/motion/*.json
             apps/flutter/build/review/defaults/*.png
+            apps/flutter/build/review/tab-drag/*.png
           if-no-files-found: error
           retention-days: 14
 

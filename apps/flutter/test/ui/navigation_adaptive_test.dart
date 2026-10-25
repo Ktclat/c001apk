@@ -994,6 +994,177 @@ void main() {
     recorder.environment.remove('nonFiniteTest');
   });
 
+  testWidgets(
+      'held dock scrub changes real roots without reselect or hide regression',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 850);
+    tester.view.padding = const FakeViewPadding(top: 32, bottom: 24);
+    tester.view.viewPadding = const FakeViewPadding(top: 32, bottom: 24);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    await finishFixtureIo(tester, () => GStorage.setFloatingTabBar(true));
+    final key = GlobalKey();
+    await tester
+        .pumpWidget(RepaintBoundary(key: key, child: const C001APKAPP()));
+    await tester.pumpAndSettle();
+    final feed = Get.find<HomeFeedController>(tag: 'FEED');
+    feed.isEnd = true;
+    feed.loadingState.value = Success(List.generate(
+        40,
+        (i) => Datum.fromJson({
+              ...EmptyGuestAdapter.feed,
+              'id': 1000 + i,
+              'message': '合成离线验证第${i + 1}条：在悬浮导航栏内左右拖动，直接选择页面。',
+            })));
+    await tester.pumpAndSettle();
+    feed.scrollController!.jumpTo(200);
+    await tester.pumpAndSettle();
+    final dock = find.byType(FloatingTabBar);
+    Offset target(String label) =>
+        tester.getCenter(find.byKey(ValueKey('floating-tab-hit-$label')));
+    int selection() => tester.widget<FloatingTabBar>(dock).selectedIndex;
+    double opacity() => tester
+        .widget<AnimatedOpacity>(
+            find.ancestor(of: dock, matching: find.byType(AnimatedOpacity)))
+        .opacity;
+    Future<void> capture(String name) =>
+        captureRoot(tester, key, 'build/review/tab-drag/$name.png',
+            pixelRatio: 2);
+    final originalRect = tester.getRect(dock);
+    await capture('00-home-before');
+    final scrub = await tester.startGesture(target('主页'));
+    await scrub.moveBy(const Offset(23, 0));
+    await tester.pumpAndSettle();
+    expect(selection(), 0);
+    expect(feed.scrollController!.offset, 200,
+        reason: 'Dwelling inside Home is not a tap-again scroll-to-top');
+    await scrub.moveTo(target('关注'));
+    await tester.pumpAndSettle();
+    expect(selection(), 1);
+    await capture('01-held-follow');
+    await scrub.moveTo(target('我的'));
+    await tester.pumpAndSettle();
+    expect(selection(), 2);
+    await capture('02-held-my');
+    await scrub.moveTo(target('关注'));
+    await tester.pumpAndSettle();
+    expect(selection(), 1);
+    await scrub.moveTo(target('主页'));
+    await tester.pumpAndSettle();
+    expect(selection(), 0);
+    expect(feed.scrollController!.offset, 200);
+    expect(tester.getRect(dock), originalRect);
+    await scrub.up();
+    await tester.pumpAndSettle();
+    await capture('03-reversed-home');
+    expect(opacity(), 1);
+
+    final list = find.descendant(
+        of: find.byWidgetPredicate(
+            (w) => w is HomeFeedPage && w.tabType == TabType.FEED),
+        matching: find.byType(ListView));
+    final padding = tester.widget<ListView>(list).padding;
+    // A second finger may start content scrolling while the first is still
+    // held on the dock. IgnorePointer alone cannot cancel that old hit path.
+    final heldScrub = await tester.startGesture(target('主页'), pointer: 7);
+    await heldScrub.moveBy(const Offset(23, 0));
+    await tester.pump();
+    final scroll =
+        await tester.startGesture(tester.getCenter(list), pointer: 8);
+    await scroll.moveBy(const Offset(0, -24));
+    await tester.pump(const Duration(milliseconds: 16));
+    await scroll.moveBy(const Offset(0, -12));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(opacity(), greaterThan(0));
+    expect(opacity(), lessThan(1));
+    expect(tester.getRect(dock).top, greaterThan(originalRect.top));
+    expect(tester.widget<ListView>(list).padding, padding);
+    expect(selection(), 0);
+    await capture('04-progressive-scroll-hide');
+    await scroll.moveBy(const Offset(0, -140));
+    await scroll.up();
+    await tester.pumpAndSettle();
+    expect(opacity(), 0);
+    await heldScrub.moveTo(originalRect.centerRight - const Offset(30, 0));
+    await heldScrub.up();
+    await tester.pumpAndSettle();
+    expect(selection(), 0, reason: 'A pre-hide held pointer cannot select');
+    expect(opacity(), 0);
+    expect(find.byKey(const ValueKey('floating-tab-hit-我的')).hitTestable(),
+        findsNothing);
+    final hiddenScrub = await tester
+        .startGesture(originalRect.centerLeft + const Offset(30, 0));
+    await hiddenScrub.moveBy(const Offset(160, 0));
+    await hiddenScrub.up();
+    await tester.pumpAndSettle();
+    expect(selection(), 0, reason: 'Hidden dock must not receive a new scrub');
+    await capture('05-hidden-no-scrub');
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('standard bottom bar scrubs real roots outside safe-area padding',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(400, 890);
+    tester.view.padding =
+        const FakeViewPadding(left: 18, top: 32, right: 8, bottom: 24);
+    tester.view.viewPadding =
+        const FakeViewPadding(left: 18, top: 32, right: 8, bottom: 24);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetPadding);
+    addTearDown(tester.view.resetViewPadding);
+    await finishFixtureIo(tester, () => GStorage.setFloatingTabBar(false));
+    final key = GlobalKey();
+    await tester
+        .pumpWidget(RepaintBoundary(key: key, child: const C001APKAPP()));
+    await tester.pumpAndSettle();
+    final bar = find.byType(NavigationBar);
+    expect(bar, findsOneWidget);
+    expect(find.byType(NavigationRail), findsNothing);
+    final rect = tester.getRect(bar);
+    Offset target(int index) => tester.getCenter(find
+        .descendant(of: bar, matching: find.byType(NavigationDestination))
+        .at(index));
+    int selection() => tester.widget<NavigationBar>(bar).selectedIndex;
+    Future<void> capture(String name) =>
+        captureRoot(tester, key, 'build/review/tab-drag/standard-$name.png',
+            pixelRatio: 2);
+    for (var i = 0; i < 3; i++) {
+      expect(target(i).dx,
+          closeTo(rect.left + 18 + (rect.width - 26) / 3 * (i + .5), .01));
+    }
+    await capture('00-home');
+    final gesture = await tester.startGesture(target(0));
+    for (final i in [1, 2, 1, 0]) {
+      await gesture.moveTo(target(i));
+      await tester.pumpAndSettle();
+      expect(selection(), i);
+      expect(tester.getRect(bar), rect);
+      await capture(
+          'held-${i == 0 ? 'home-return' : i == 1 ? 'follow' : 'my'}');
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+    final safeAreaDrag =
+        await tester.startGesture(Offset(rect.left + 40, rect.bottom - 4));
+    await safeAreaDrag.moveTo(target(2));
+    await safeAreaDrag.up();
+    await tester.pumpAndSettle();
+    expect(selection(), 0, reason: 'Bottom gesture inset is not a tab target');
+    await tester.tap(find
+        .descendant(of: bar, matching: find.byType(NavigationDestination))
+        .at(2));
+    await tester.pumpAndSettle();
+    expect(selection(), 2);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   final cases = [
     (
       'xiaomi-aspect-density3',

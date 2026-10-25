@@ -11,6 +11,7 @@ import 'package:get/get.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 
 import '../../components/floating_tab_bar.dart';
+import '../../components/navigation_tab_scrubber.dart';
 import '../../components/floating_dock_motion.dart';
 import '../../utils/navigation_diagnostics.dart';
 import '../../pages/home/return_top_controller.dart';
@@ -458,8 +459,14 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                                           dockWidth: dockWidth,
                                           destinations: barDestinations,
                                           selectedIndex: snapshot.data ?? 0,
-                                          onDestinationSelected:
-                                              onDestinationSelected,
+                                          onDestinationSelected: (index) {
+                                            // IgnorePointer prevents new hits,
+                                            // not an already-held scrub if a
+                                            // second finger hides the dock.
+                                            if (_dockMotion.fullyShown) {
+                                              onDestinationSelected(index);
+                                            }
+                                          },
                                         ),
                                       ),
                                     ),
@@ -498,12 +505,22 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                         ? StreamBuilder<int>(
                             initialData: _selectedIndex,
                             stream: _indexSctream.stream,
-                            builder: (_, snapshot) => NavigationBar(
+                            builder: (context, snapshot) =>
+                                NavigationTabScrubber(
                               destinations: barDestinations,
                               selectedIndex: snapshot.data ?? 0,
                               onDestinationSelected: onDestinationSelected,
-                              labelBehavior: NavigationDestinationLabelBehavior
-                                  .onlyShowSelected,
+                              // Match NavigationBar's internal SafeArea using
+                              // Scaffold's already-adjusted bottom-bar context.
+                              contentPadding: MediaQuery.paddingOf(context),
+                              child: NavigationBar(
+                                destinations: barDestinations,
+                                selectedIndex: snapshot.data ?? 0,
+                                onDestinationSelected: onDestinationSelected,
+                                labelBehavior:
+                                    NavigationDestinationLabelBehavior
+                                        .onlyShowSelected,
+                              ),
                             ),
                           )
                         : null,
