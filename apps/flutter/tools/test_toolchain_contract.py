@@ -59,6 +59,24 @@ class AndroidToolchainContractTests(unittest.TestCase):
                        and path.split('/')[2] in excluded]
         self.assertEqual(hidden_dart, [], 'Review analyzer coverage before adding platform Dart sources')
 
+    def test_ci_bounds_transform_concurrency_and_build_jvm_lifetime(self):
+        workflow = (ROOT / '.github/workflows/android-font-build.yml').read_text()
+        checks, android_build = workflow.split('\n  android-debug:\n', 1)
+        build_settings = android_build.split('\n    steps:', 1)[0]
+        # CI-only: universal engine JAR transforms share the build JVM heap.
+        # A single-use daemon avoids retaining the preceding Debug build state.
+        self.assertIn(
+            "      GRADLE_OPTS: '-Dorg.gradle.workers.max=1 -Dorg.gradle.daemon=false'",
+            build_settings,
+        )
+        self.assertNotIn('GRADLE_OPTS:', checks)
+        self.assertEqual(android_build.count('GRADLE_OPTS:'), 1)
+        properties = (APP / 'android/gradle.properties').read_text()
+        self.assertIn('org.gradle.jvmargs=-Xmx4G -XX:MaxMetaspaceSize=2G', properties)
+        self.assertIn('android.enableJetifier=true', properties)
+        self.assertNotIn('org.gradle.workers.max=', properties)
+        self.assertNotIn('org.gradle.daemon=', properties)
+
     def test_minimum_support_and_target_behavior_are_explicit(self):
         gradle = (APP / 'android/app/build.gradle').read_text()
         for setting in ('compileSdk = 36', 'minSdk = 24', 'targetSdk = 34',

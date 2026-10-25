@@ -135,6 +135,10 @@ jobs:
     name: Build Android debug and profile APKs
     runs-on: ubuntu-22.04
     timeout-minutes: 40
+    env:
+      # Serialize memory-heavy universal Flutter/Jetifier transforms and give
+      # each APK invocation a fresh build JVM. Keep the project's heap limits.
+      GRADLE_OPTS: '-Dorg.gradle.workers.max=1 -Dorg.gradle.daemon=false'
     defaults:
       run:
         working-directory: apps/flutter
