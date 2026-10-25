@@ -22,7 +22,7 @@
 
 本仓库 Android 应用包名调整为 `io.github.ktclat.c001apk`，可与原项目安装包并存。**包名变更不会迁移旧应用的登录状态、收藏和本地存储**，请按需在旧应用中保留或备份数据；Debug 包使用开发签名，不等于正式发布。详见[构建与签名说明](docs/CI.md)。
 
-本地开发：Flutter 3.24.5、JDK 17、Android SDK 34。进入 `apps/flutter` 后：
+本次工具链迁移基线：Flutter 3.47.7 / Dart 3.13.5、JDK 17、Android compile SDK 36。最低支持 **Android 7.0（API 24）**，不再支持 Android 5/6；target SDK 暂保留 34，以便单独验证行为变化。迁移检查状态和兼容性依据见[迁移说明](docs/FLUTTER_TOOLCHAIN_MIGRATION.md)。进入 `apps/flutter` 后：
 
 ```sh
 bash tools/fetch_fonts.sh

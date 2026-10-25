@@ -4,7 +4,7 @@
 
 ## 范围
 
-本仓库维护 Android 客户端，当前使用 Flutter 3.24.5 和 Material 3，而不是 Kotlin / Compose 工程。Windows、Linux、iOS 暂不进行构建、发布或适配；部分跨平台代码出于兼容和历史原因仍保留，新增功能请优先验证 Android。
+本仓库维护 Android 客户端，当前工具链迁移使用 Flutter 3.47.7 和 Material 3，而不是 Kotlin / Compose 工程。Windows、Linux、iOS 暂不进行构建、发布或适配；部分跨平台代码出于兼容和历史原因仍保留，新增功能请优先验证 Android。
 
 工作目录：`apps/flutter/`。主要结构：
 
@@ -20,7 +20,7 @@
 
 ## 环境配置
 
-安装 Flutter 3.24.5、Dart 3.5、JDK 17、Android SDK 34；连接 Android 设备或模拟器。依赖与版本使用仓库已提交的 `pubspec.lock`。
+安装 Flutter 3.47.7（内含 Dart 3.13.5）、JDK 17、Android SDK 35 / 36、Build Tools 35.0.0 和 NDK 28.2.13676358。Gradle 8.14.3 / AGP 8.13.2 / Kotlin 2.3.10 由工程锁定，最低运行系统为 Android 7.0（API 24），target SDK 暂保留 34。依赖使用仓库已提交的 `pubspec.lock`，不要跳过 SDK 依赖检查或整批升级依赖；兼容性和待验收项目见[迁移说明](FLUTTER_TOOLCHAIN_MIGRATION.md)。
 
 ```bash
 cd apps/flutter

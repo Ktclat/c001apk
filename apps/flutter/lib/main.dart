@@ -142,11 +142,11 @@ class C001APKAPP extends StatelessWidget {
       popupMenuTheme: PopupMenuThemeData(
         surfaceTintColor: lightColorScheme.surfaceTint,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         surfaceTintColor: lightColorScheme.surfaceTint,
         shadowColor: Colors.transparent,
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         surfaceTintColor: lightColorScheme.surfaceTint,
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -171,14 +171,21 @@ class C001APKAPP extends StatelessWidget {
         contentTextStyle: TextStyle(color: darkColorScheme.secondary),
         elevation: 20,
       ),
+      // Keep the pre-migration Android dark-mode transition. Newer Flutter
+      // changes its default; that behavior is outside this toolchain update.
+      pageTransitionsTheme: const PageTransitionsTheme(
+        builders: <TargetPlatform, PageTransitionsBuilder>{
+          TargetPlatform.android: ZoomPageTransitionsBuilder(),
+        },
+      ),
       popupMenuTheme: PopupMenuThemeData(
         surfaceTintColor: darkColorScheme.surfaceTint,
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         surfaceTintColor: darkColorScheme.surfaceTint,
         shadowColor: Colors.transparent,
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         surfaceTintColor: darkColorScheme.surfaceTint,
       ),
       inputDecorationTheme: InputDecorationTheme(

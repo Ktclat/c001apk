@@ -2,7 +2,7 @@
 
 [返回 README](../README.md) · [本仓库 Android CI](https://github.com/Ktclat/c001apk/actions/workflows/android-font-build.yml)
 
-唯一维护的构建工作流为 [android-font-build.yml](../.github/workflows/android-font-build.yml)，主要使用 Flutter **3.24.5**、JDK **17**、Android SDK **34** 和锁定的 `pubspec.lock`。本仓库不提供 Windows/Linux/iOS 的 CI 或安装包。
+唯一维护的构建工作流为 [android-font-build.yml](../.github/workflows/android-font-build.yml)，迁移配置使用 Flutter **3.47.7** / Dart **3.13.5**、JDK **17**、Android compile SDK **36** 和锁定的 `pubspec.lock`。本仓库不提供 Windows/Linux/iOS 的 CI 或安装包。最低支持 Android **7.0 / API 24**，target SDK 暂保留 **34**；[迁移说明](FLUTTER_TOOLCHAIN_MIGRATION.md) 区分源码配置、实测结果与未验证项。
 
 ## 自动检查
 
@@ -24,7 +24,7 @@
 - **`c001apk-android-profile-arm64` → `app-normal-arm64-profile.apk`**：普通应用的 arm64 专用 Profile 包，适用于 arm64 Android 设备，不适用于仅支持 32 位或 x86 的设备。与通用 Profile 包使用相同源码和构建标识；不启用诊断入口。上传前检查精确包名 `io.github.ktclat.c001apk`、仅含 arm64 原生库、AOT 库存在且非空、无 Dart JIT kernel 以及 APK 严格小于 50,000,000 字节；超限会失败，不会偷偷替换成诊断包。
 - **`c001apk-android-debug` → `app-debug.apk`**：开发调试包；JIT 和断言会影响性能。右上角的 DEBUG 字样已经隐藏，但程序仍在 Debug 模式运行。
 
-注意：固定使用的 [Flutter 3.24.5 Gradle 插件](https://github.com/flutter/flutter/blob/3.24.5/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy) 的 Profile 类型从 Debug 初始化，Android 清单仍可带 `debuggable=true`；这不等于 Flutter Debug/JIT 模式。CI 通过固定的 `--profile` 构建命令和 APK 中的 AOT 库、无 JIT kernel 布局联合验证，而不是要求 Android 不可调试。Profile 仍是可分析的测试包，不应作为正式 Release 发布。
+注意：固定使用的 [Flutter 3.47.7 Gradle 插件](https://github.com/flutter/flutter/blob/3.47.7/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt) 的 Profile 类型从 Debug 初始化，Android 清单仍可带 `debuggable=true`；这不等于 Flutter Debug/JIT 模式。CI 通过固定的 `--profile` 构建命令和 APK 中的 AOT 库、无 JIT kernel 布局联合验证，而不是要求 Android 不可调试。Profile 仍是可分析的测试包，不应作为正式 Release 发布。
 
 以上普通应用构建都不是正式发布签名版本，使用开发测试签名。arm64 包与通用包的包名相同，不能作为两个独立应用并存；不同 CI 运行的开发签名可能不一致，导致覆盖安装失败。不要为安装测试包而卸载未备份本地数据的已有应用。
 
@@ -48,7 +48,7 @@ flutter build apk --profile --no-pub
 flutter build apk --profile --no-pub --split-per-abi --target-platform android-arm64
 ```
 
-Gradle 使用系统 JDK 17；必要时执行 `flutter config --jdk-dir=/path/to/jdk17`。Android SDK 包括 `platforms;android-34`、`build-tools;34.0.0`、`build-tools;30.0.3` 和 `ndk;23.1.7779620`。
+Gradle 使用系统 JDK 17；必要时执行 `flutter config --jdk-dir=/path/to/jdk17`。Android SDK 包括 `platforms;android-35`（splash 插件编译）、`platforms;android-36`（应用编译）、`build-tools;35.0.0` 和 `ndk;28.2.13676358`。Wrapper 使用 Gradle 8.14.3 官方 bin 分发和 SHA-256 校验；AGP 8.13.2 / Kotlin 2.3.10 不升级到 AGP 9。
 
 ## 正式版发布（待维护者配置）
 

@@ -32,6 +32,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:get/get.dart';
 import 'package:hive/hive.dart';
 import 'localization_test.dart' show EmptyGuestAdapter;
+import 'message_shortcuts_test_support.dart';
 
 class AdaptiveRouteAdapter extends EmptyGuestAdapter {
   @override
@@ -1251,6 +1252,123 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     });
   }
+  for (final window in [
+    (
+      'compact',
+      const Size(320, 640),
+      2.0,
+      const EdgeInsets.fromLTRB(0, 24, 0, 48)
+    ),
+    (
+      'xiaomi-observed',
+      const Size(1200 / 3.25, 2670 / 3.25),
+      3.25,
+      const EdgeInsets.fromLTRB(0, 140 / 3.25, 0, 0)
+    ),
+    (
+      'xiaomi-landscape',
+      const Size(2670 / 3.25, 1200 / 3.25),
+      3.25,
+      const EdgeInsets.fromLTRB(140 / 3.25, 0, 0, 24)
+    ),
+  ]) {
+    for (final scale in [1.0, 2.0, 2.6]) {
+      testWidgets('real root My shortcut accessibility ${window.$1} $scale',
+          (tester) async {
+        final size = window.$2;
+        final dpr = window.$3;
+        final inset = window.$4;
+        tester.view.devicePixelRatio = dpr;
+        tester.view.physicalSize = size * dpr;
+        final padding = FakeViewPadding(
+          left: inset.left * dpr,
+          top: inset.top * dpr,
+          right: inset.right * dpr,
+          bottom: inset.bottom * dpr,
+        );
+        tester.view.viewPadding = padding;
+        tester.view.padding = padding;
+        tester.view.systemGestureInsets = FakeViewPadding(
+          top: window.$1 == 'xiaomi-observed' ? 179 : 0,
+          bottom: inset.bottom * dpr,
+        );
+        tester.platformDispatcher.textScaleFactorTestValue = scale;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetViewPadding);
+        addTearDown(tester.view.resetPadding);
+        addTearDown(tester.view.resetSystemGestureInsets);
+        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+        GlobalData().isLogin = false;
+        await finishFixtureIo(tester, () async {
+          await GStorage.setFloatingTabBar(true);
+          await GStorage.setFontChoice(AppFontChoice.notoSans);
+          await GStorage.settings.put(SettingsBoxKey.fontScale, 1.0);
+        });
+        final semantics = tester.ensureSemantics();
+        try {
+          final key = GlobalKey();
+          await tester
+              .pumpWidget(RepaintBoundary(key: key, child: const C001APKAPP()));
+          await tester.pumpAndSettle();
+          await tester.tap(find.byKey(const ValueKey('floating-tab-hit-我的')));
+          await tester.pumpAndSettle();
+          final dock = find.byType(FloatingTabBar);
+          final viewport = find.byType(CustomScrollView);
+          final scroll = find
+              .descendant(of: viewport, matching: find.byType(Scrollable))
+              .first;
+          final position = tester.state<ScrollableState>(scroll).position;
+          Future<void> capture(String suffix) => captureRoot(tester, key,
+              'build/review/profile-shortcuts/${window.$1}-scale-$scale-$suffix.png',
+              pixelRatio: dpr);
+
+          Future<void> expectReachable(Finder target) async {
+            await tester.ensureVisible(target);
+            await tester.pumpAndSettle();
+            final shift =
+                tester.getRect(target).bottom - (tester.getRect(dock).top - 16);
+            if (shift > 0) {
+              position.jumpTo(
+                  (position.pixels + shift).clamp(0, position.maxScrollExtent));
+              await tester.pumpAndSettle();
+            }
+            expect(target.hitTestable(), findsOneWidget);
+            expect(tester.getRect(target).top,
+                greaterThanOrEqualTo(tester.getRect(viewport).top - .01));
+            expect(tester.getRect(target).bottom,
+                lessThanOrEqualTo(tester.getRect(dock).top - 15.99));
+            expect(tester.takeException(), isNull);
+          }
+
+          await capture('my-top');
+          for (final title in messageShortcutTitles) {
+            await expectReachable(messageShortcut(title));
+            expectMessageShortcutLayout(tester, title);
+          }
+          await capture('last-shortcut');
+          await settleAtEnd(tester, position);
+          final lastMy = find
+              .ancestor(of: find.text('私信与信息'), matching: find.byType(InkWell))
+              .first;
+          await expectReachable(lastMy);
+          expect(tester.getRect(lastMy).height, greaterThanOrEqualTo(48));
+          expect(tester.getRect(dock).bottom,
+              lessThanOrEqualTo(size.height - inset.bottom));
+          for (final label in ['主页', '关注', '我的']) {
+            expect(
+                find.byKey(ValueKey('floating-tab-hit-$label')).hitTestable(),
+                findsOneWidget);
+          }
+          await capture('my-bottom');
+          await tester.pumpWidget(const SizedBox());
+        } finally {
+          semantics.dispose();
+        }
+      });
+    }
+  }
+
   for (final routeSize in [const Size(400, 890), const Size(480, 240)]) {
     testWidgets(
         'actual local follow and nested topic content scroll the dock $routeSize',

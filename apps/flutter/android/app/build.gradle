@@ -23,7 +23,7 @@ def _diagnosticBuild = providers.gradleProperty('diagnosticBuild').orNull == 'tr
 
 android {
     namespace = "app.awavenue.c001apk"
-    compileSdk = 34
+    compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -40,8 +40,10 @@ android {
         // existing Flutter/Android native class names.
         applicationId = _diagnosticBuild ? "io.github.ktclat.c001apk.diagnostic.motion" : "io.github.ktclat.c001apk"
         manifestPlaceholders.applicationLabel = _diagnosticBuild ? "c001apk 动效验证" : "c001apk"
-        minSdk = flutter.minSdkVersion
-        targetSdk = flutter.targetSdkVersion
+        // Android 7.0+ is the supported baseline for this SDK migration.
+        minSdk = 24
+        // Isolate build-tool changes from newer Android target behavior.
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName + (_diagnosticBuild ? "-diag" : "")
     }

@@ -228,6 +228,11 @@ void main() {
     await tester.pump(const Duration(milliseconds: 500));
     final root = tester.widget<GetMaterialApp>(find.byType(GetMaterialApp));
     expect(root.debugShowCheckedModeBanner, isFalse);
+    // An SDK upgrade must not silently replace the existing Android route UX.
+    expect(root.theme!.pageTransitionsTheme.builders[TargetPlatform.android],
+        isA<FadeUpwardsPageTransitionsBuilder>());
+    expect(root.darkTheme!.pageTransitionsTheme.builders[TargetPlatform.android],
+        isA<ZoomPageTransitionsBuilder>());
     final homeState = tester.state(find.byType(HomePage));
     final context = tester.element(find.byType(NavigationBar));
     expect(Localizations.localeOf(context), const Locale('zh', 'CN'));

@@ -8,7 +8,7 @@ void main() {
 
   test('partial sync preserves fork toolchain and session boundaries', () {
     final workflow = read('../../.github/workflows/android-font-build.yml');
-    expect(workflow, contains('3.24.5'));
+    expect(workflow, contains('3.47.7'));
     expect(read('lib/logic/network/interceptor.dart'),
         contains("options.extra['apiSessionContext'] = _sessions.capture()"));
     expect(read('lib/pages/common/common_controller.dart'),

@@ -25,9 +25,9 @@ def verify(aapt, apk):
     native = re.search(r'^native-code: (.+)$', badging, re.M)
     require(native and re.findall(r"'([^']+)'", native.group(1)) == ['arm64-v8a'],
             'Expected only arm64-v8a in APK badging')
-    # Flutter 3.24.5 profile initWith(debug) retains Android debuggability.
-    # buildModeFor selects profile by name before inspecting debuggable:
-    # https://github.com/flutter/flutter/blob/3.24.5/packages/flutter_tools/gradle/src/main/groovy/flutter.groovy
+    # Flutter 3.47.7 profile initWith(debug) retains Android debuggability.
+    # Flutter selects profile by name before inspecting debuggable:
+    # https://github.com/flutter/flutter/blob/3.47.7/packages/flutter_tools/gradle/src/main/kotlin/FlutterPlugin.kt
     # Android's flag is not a JIT-mode discriminator. The --profile CI contract
     # plus nonempty AOT libraries and absence of JIT kernels establish this check.
     with zipfile.ZipFile(apk) as archive:

@@ -15,11 +15,15 @@ import 'package:hive/hive.dart';
 
 class LoginAdapter implements HttpClientAdapter {
   String message = '图形验证码不能为空';
+  String loginHtml =
+      '<html><body data-request-hash="synthetic-hash"></body></html>';
+  final loginRequests = <RequestOptions>[];
   int captchaRequests = 0;
   Completer<ResponseBody>? pendingLogin;
   @override
   Future<ResponseBody> fetch(RequestOptions options,
       Stream<Uint8List>? requestStream, Future<void>? cancelFuture) async {
+    if (options.method == 'POST') loginRequests.add(options);
     if (options.method == 'POST' && pendingLogin != null) {
       return pendingLogin!.future;
     }
@@ -36,7 +40,7 @@ class LoginAdapter implements HttpClientAdapter {
     return ResponseBody.fromString(
         options.method == 'POST'
             ? jsonEncode({'status': 0, 'message': message})
-            : '<html><body data-request-hash="synthetic-hash"></body></html>',
+            : loginHtml,
         200,
         headers: {
           Headers.contentTypeHeader: ['text/html']
@@ -80,6 +84,39 @@ void main() {
         ]));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('escaped request hash reaches the actual login submission',
+      (tester) async {
+    adapter.loginHtml =
+        '<!doctype html><BODY data-request-hash="synthetic&amp;&#x2B;&quot;hash">'
+        '<p>未闭合的合成段落';
+    adapter.message = '';
+    await openLogin(tester);
+    await tester.enterText(find.byType(TextField).at(0), 'synthetic-user');
+    await tester.enterText(find.byType(TextField).at(1), 'synthetic-password');
+    await tester.tap(find.widgetWithText(FilledButton, '登录'));
+    await tester.pumpAndSettle();
+    expect(adapter.loginRequests, hasLength(1));
+    expect((adapter.loginRequests.single.data as Map)['requestHash'],
+        'synthetic&+"hash');
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('escaped body markup cannot enable a missing request hash',
+      (tester) async {
+    adapter.loginHtml =
+        '<body>&lt;body data-request-hash="not-an-attribute"&gt;</body>';
+    await openLogin(tester);
+    await tester.enterText(find.byType(TextField).at(0), 'synthetic-user');
+    await tester.enterText(find.byType(TextField).at(1), 'synthetic-password');
+    expect(
+        tester
+            .widget<FilledButton>(find.widgetWithText(FilledButton, '登录'))
+            .onPressed,
+        isNull);
+    expect(adapter.loginRequests, isEmpty);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('Windows login exposes the web login action', (tester) async {
     await openLogin(tester);
