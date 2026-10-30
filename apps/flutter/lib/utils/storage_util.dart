@@ -353,8 +353,17 @@ class GStorage {
   static Future<void> setFloatingTabBar(bool enabled) =>
       settings.put(SettingsBoxKey.floatingTabBar, enabled);
 
+  /// Keeps the current scroll-linked behavior unless the user turns it off.
+  /// Independent of the navigation style, so toggling that style preserves it.
+  static bool get hideFloatingTabBarOnScroll => settings.get(
+      SettingsBoxKey.hideFloatingTabBarOnScroll,
+      defaultValue: true);
+
+  static Future<void> setHideFloatingTabBarOnScroll(bool enabled) =>
+      settings.put(SettingsBoxKey.hideFloatingTabBarOnScroll, enabled);
+
   // Older builds stored floatingNavigationPolicy. It is intentionally ignored:
-  // floating navigation now has one scroll-linked behavior for every install.
+  // the scroll visibility preference has its own independent, stable key.
 
   static double get fontScale {
     return settings.get(SettingsBoxKey.fontScale, defaultValue: 1.0);
@@ -608,6 +617,7 @@ class SettingsBoxKey {
       fontChoice = 'fontChoice',
       readingPreset = 'readingPreset',
       floatingTabBar = 'floatingTabBar',
+      hideFloatingTabBarOnScroll = 'hideFloatingTabBarOnScroll',
       typographyV2 = 'typographyV2Migrated',
       followType = 'followType',
       imageQuality = 'imageQuality',

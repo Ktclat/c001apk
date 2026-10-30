@@ -222,6 +222,7 @@ void main() {
 
   setUp(() async {
     await GStorage.settings.delete('floatingNavigationPolicy');
+    await GStorage.settings.delete(SettingsBoxKey.hideFloatingTabBarOnScroll);
   });
 
   tearDown(() async {
@@ -231,6 +232,107 @@ void main() {
   tearDownAll(() async {
     await Hive.close();
     await temp.delete(recursive: true);
+  });
+
+  testWidgets('scroll-hide changes restore navigation and clear old scroll intent',
+      (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 850);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewInsets);
+    await finishFixtureIo(tester, () => GStorage.setFloatingTabBar(true));
+    await tester.pumpWidget(const C001APKAPP());
+    await tester.pumpAndSettle();
+    final rows = List.generate(
+        60,
+        (i) => Datum.fromJson({
+              ...EmptyGuestAdapter.feed,
+              'id': 6000 + i,
+              'message': 'Synthetic scroll-hide option regression $i',
+            }));
+    var feed = Get.find<HomeFeedController>(tag: 'FEED');
+    feed.isEnd = true;
+    feed.loadingState.value = Success(rows);
+    await tester.pumpAndSettle();
+    final list = find.descendant(
+        of: find.byWidgetPredicate(
+            (w) => w is HomeFeedPage && w.tabType == TabType.FEED),
+        matching: find.byType(ListView));
+    final dock = find.byType(FloatingTabBar);
+    Finder ancestor(Type type) =>
+        find.ancestor(of: dock, matching: find.byType(type));
+    double opacity() =>
+        tester.widget<AnimatedOpacity>(ancestor(AnimatedOpacity)).opacity;
+
+    await tester.fling(list, const Offset(0, -220), 1800);
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(opacity(), 0);
+    expect(feed.scrollController!.position.isScrollingNotifier.value, true);
+    await finishFixtureIo(
+        tester, () => GStorage.setHideFloatingTabBarOnScroll(false));
+    await tester.pump();
+    expect(opacity(), 1,
+        reason: 'Disabling scroll hide reveals an already hidden dock');
+    expect(tester.widget<IgnorePointer>(ancestor(IgnorePointer).first).ignoring,
+        false);
+    expect(
+        tester
+            .widget<ExcludeSemantics>(ancestor(ExcludeSemantics).first)
+            .excluding,
+        false);
+    expect(tester.widget<ExcludeFocus>(ancestor(ExcludeFocus).first).excluding,
+        false);
+    expect(find.byKey(const ValueKey('floating-tab-hit-我的')).hitTestable(),
+        findsOneWidget);
+    expect(NavigationDiagnostics.instance.environment['floatingNavigationPolicy'],
+        'alwaysVisible');
+
+    await finishFixtureIo(
+        tester, () => GStorage.setHideFloatingTabBarOnScroll(true));
+    await tester.pump();
+    final oldOffset = feed.scrollController!.offset;
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(feed.scrollController!.offset, greaterThan(oldOffset),
+        reason: 'The pre-setting-change ballistic tail really continued');
+    expect(opacity(), 1,
+        reason: 'Re-enabling must wait for a new genuine scroll gesture');
+    await tester.pumpAndSettle();
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(opacity(), 0, reason: 'A new gesture can hide after re-enabling');
+
+    await finishFixtureIo(
+        tester, () => GStorage.setHideFloatingTabBarOnScroll(false));
+    await tester.pumpAndSettle();
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(opacity(), 1, reason: 'Scrolling cannot hide when the option is off');
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    await tester.pumpAndSettle();
+    expect(dock, findsNothing, reason: 'The keyboard still hides navigation');
+    tester.view.resetViewInsets();
+    await tester.pumpAndSettle();
+    expect(opacity(), 1);
+
+    // Recreate the real app to exercise the stored preference, not local state.
+    await tester.pumpWidget(const SizedBox());
+    Get.reset();
+    await tester.pumpWidget(const C001APKAPP());
+    await tester.pumpAndSettle();
+    feed = Get.find<HomeFeedController>(tag: 'FEED');
+    feed.isEnd = true;
+    feed.loadingState.value = Success(rows);
+    await tester.pumpAndSettle();
+    await tester.drag(list, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(GStorage.hideFloatingTabBarOnScroll, false);
+    expect(opacity(), 1);
+    await tester.tap(find.byKey(const ValueKey('floating-tab-hit-我的')));
+    await tester.pumpAndSettle();
+    expect(find.text('点击登录'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox());
   });
 
   testWidgets(
@@ -887,7 +989,7 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
-  testWidgets('default policy settings retain only floating navigation toggle',
+  testWidgets('floating settings expose a persistent scroll-hide toggle',
       (tester) async {
     tester.view.devicePixelRatio = 3.25;
     tester.view.physicalSize = const Size(1200, 2670);
@@ -903,16 +1005,22 @@ void main() {
           theme: ThemeData(fontFamily: AppFontChoice.bundledFontFamily),
           home: const SettingsPage(),
         )));
-    await tester.tap(find.text('外观与字体'));
+    await tester.tap(find.text('外观与导航'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('悬浮 Tab 导航'));
     await tester.pumpAndSettle();
-    expect(find.text('悬浮导航隐藏方式'), findsNothing);
-    expect(find.text('滚动时隐藏'), findsNothing);
+    expect(find.text('滚动时隐藏悬浮导航'), findsNothing);
     await tester.tap(find.text('悬浮 Tab 导航'));
     await finishFixtureIo(tester, () => GStorage.settings.flush());
     await tester.pumpAndSettle();
     expect(GStorage.floatingTabBar, true);
+    expect(find.text('滚动时隐藏悬浮导航'), findsOneWidget);
+    expect(GStorage.hideFloatingTabBarOnScroll, true);
+    await tester.ensureVisible(find.text('滚动时隐藏悬浮导航'));
+    await tester.tap(find.text('滚动时隐藏悬浮导航'));
+    await finishFixtureIo(tester, () => GStorage.settings.flush());
+    await tester.pumpAndSettle();
+    expect(GStorage.hideFloatingTabBarOnScroll, false);
     await captureRoot(
         tester, key, 'build/review/defaults/05-single-floating-toggle.png');
     tester.view.devicePixelRatio = 1;
@@ -929,6 +1037,8 @@ void main() {
     await finishFixtureIo(tester, () => GStorage.settings.flush());
     await tester.pumpAndSettle();
     expect(GStorage.floatingTabBar, false);
+    expect(GStorage.hideFloatingTabBarOnScroll, false,
+        reason: 'Disabling the dock preserves the scroll-hide preference');
     await tester.pumpWidget(const SizedBox());
   });
 

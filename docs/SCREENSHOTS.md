@@ -6,7 +6,7 @@
 
 - `android-home.png`：动态首页
 - `android-article.png`：文章正文
-- `android-settings.png`：外观与字体设置
+- `android-settings.png`：阅读与字体设置
 - `android-font-preview.png`：真实设备字体切换前后的可比页面
 
 截图前使用测试账号或游客模式；遮盖 UID、昵称、头像、消息内容、地址、验证码、设备标识等个人信息。请标注 APK 版本、Android 版本、设备型号和截图时间（无需公布敏感信息）。原文件只在取得所有必要权利后提交。

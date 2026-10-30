@@ -41,6 +41,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
   late final FloatingDockMotion _dockMotion = FloatingDockMotion(vsync: this);
   bool _userScrollActive = false;
   bool _floatingActive = false;
+  bool _hideOnScroll = true;
   bool _accessibleNavigation = false;
   bool _usingRail = false;
   bool _reducedMotion = false;
@@ -84,6 +85,10 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 
     if (!_floatingActive || page != _selectedIndex) {
       record(!_floatingActive ? 'floating_inactive' : 'inactive_root');
+      return false;
+    }
+    if (!_hideOnScroll) {
+      record('scroll_hide_disabled');
       return false;
     }
     if (!tickerEnabled || currentRoute == false) {
@@ -268,8 +273,10 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
         onBackPressed();
       },
       child: ValueListenableBuilder(
-        valueListenable:
-            GStorage.settings.listenable(keys: [SettingsBoxKey.floatingTabBar]),
+        valueListenable: GStorage.settings.listenable(keys: [
+          SettingsBoxKey.floatingTabBar,
+          SettingsBoxKey.hideFloatingTabBarOnScroll,
+        ]),
         builder: (context, _, __) => _resetting
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
             : LayoutBuilder(
@@ -294,6 +301,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                   // chat, search and reply input fields.
                   final floating =
                       !useRail && !keyboardOpen && GStorage.floatingTabBar;
+                  final hideOnScroll = GStorage.hideFloatingTabBarOnScroll;
                   final accessible = media.accessibleNavigation;
                   final reduceMotion = media.disableAnimations || accessible;
                   if (_usingRail != useRail || _reducedMotion != reduceMotion) {
@@ -304,9 +312,11 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                   // Reset when the dock enters/leaves the layout. This also
                   // prevents rail/IME scrolls from hiding a future portrait dock.
                   if (_floatingActive != floating ||
+                      _hideOnScroll != hideOnScroll ||
                       _accessibleNavigation != accessible) {
                     _userScrollActive = false;
                     _floatingActive = floating;
+                    _hideOnScroll = hideOnScroll;
                     _accessibleNavigation = accessible;
                     _pageSwitch.value = 1;
                     _revealDock('mode_or_accessibility_change');
@@ -334,6 +344,7 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
                   NavigationDiagnostics.instance.rootConfiguration(
                       media, constraints.biggest,
                       floatingSetting: GStorage.floatingTabBar,
+                      hideOnScroll: hideOnScroll,
                       floatingActive: floating,
                       rail: useRail,
                       selectedRoot: _selectedIndex,
