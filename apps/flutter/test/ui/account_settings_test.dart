@@ -82,7 +82,12 @@ void main() {
     await tester.tap(find.text('浏览与隐私'));
     await tester.pumpAndSettle();
     expect(find.text('用户黑名单'), findsOneWidget);
-    expect(find.text('外观与字体'), findsOneWidget);
+    expect(find.text('外观与导航'), findsOneWidget);
+    await tester.tap(find.text('阅读与字体'));
+    await tester.pumpAndSettle();
+    expect(find.text('界面字体'), findsOneWidget);
+    expect(find.text('正文排版'), findsOneWidget);
+    expect(find.text('动态取色'), findsNothing);
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
   });
@@ -94,17 +99,72 @@ void main() {
     addTearDown(tester.view.resetDevicePixelRatio);
     await tester.pumpWidget(const GetMaterialApp(home: SettingsPage()));
     await tester.pumpAndSettle();
-    expect(find.text('外观与字体'), findsOneWidget);
+    expect(find.text('外观与导航'), findsOneWidget);
+    expect(find.text('阅读与字体'), findsOneWidget);
     expect(find.text('协议与设备'), findsOneWidget);
     expect(find.text('动态取色'), findsNothing);
-    await tester.tap(find.text('外观与字体'));
+    await tester.tap(find.text('外观与导航'));
     await tester.pumpAndSettle();
     expect(find.text('动态取色'), findsOneWidget);
+    expect(find.text('字体大小'), findsNothing);
+    expect(find.text('界面字体'), findsNothing);
+    expect(find.text('正文排版'), findsNothing);
+    expect(find.text('悬浮 Tab 导航'), findsOneWidget);
+    expect(find.byType(BackButton), findsOneWidget);
+    await tester.tap(find.byType(BackButton));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('阅读与字体'));
+    await tester.pumpAndSettle();
     expect(find.text('字体大小'), findsOneWidget);
     expect(find.text('界面字体'), findsOneWidget);
     expect(find.text('正文排版'), findsOneWidget);
-    expect(find.text('悬浮 Tab 导航'), findsOneWidget);
-    expect(find.byType(BackButton), findsOneWidget);
+    expect(find.text('当前：思源黑体 · 清爽（推荐）'), findsOneWidget);
+    expect(find.text('当前：舒适阅读（推荐）'), findsOneWidget);
+    expect(find.text('悬浮 Tab 导航'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+  testWidgets('scroll hiding can be changed only with floating navigation enabled',
+      (tester) async {
+    tester.view.physicalSize = const Size(400, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    const page = GetMaterialApp(
+        home: SettingsDetailPage(section: SettingsSection.appearance));
+    await tester.pumpWidget(page);
+    await tester.pumpAndSettle();
+    expect(find.text('滚动时隐藏悬浮导航'), findsNothing);
+
+    Future<void> tapSetting(String title) async {
+      await tester.ensureVisible(find.text(title));
+      await tester.runAsync(() async {
+        await tester.tap(find.text(title));
+        await GStorage.settings.flush();
+      });
+      await tester.pumpAndSettle();
+    }
+
+    await tapSetting('悬浮 Tab 导航');
+    final hideSwitch = find.descendant(
+        of: find.ancestor(
+            of: find.text('滚动时隐藏悬浮导航'), matching: find.byType(ListTile)),
+        matching: find.byType(Switch));
+    expect(tester.widget<Switch>(hideSwitch).value, isTrue);
+    await tapSetting('滚动时隐藏悬浮导航');
+    expect(tester.widget<Switch>(hideSwitch).value, isFalse);
+    expect(GStorage.hideFloatingTabBarOnScroll, isFalse);
+    expect(GStorage.fontChoice, AppFontChoice.notoSans);
+    expect(GStorage.readingPreset, ReadingPreset.comfortable);
+
+    await tapSetting('悬浮 Tab 导航');
+    expect(find.text('滚动时隐藏悬浮导航'), findsNothing);
+    await tapSetting('悬浮 Tab 导航');
+    expect(tester.widget<Switch>(hideSwitch).value, isFalse);
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pumpWidget(page);
+    await tester.pumpAndSettle();
+    expect(tester.widget<Switch>(hideSwitch).value, isFalse);
+    expect(GStorage.floatingTabBar, isTrue);
     await tester.pumpWidget(const SizedBox.shrink());
   });
   testWidgets('settings fit narrow windows with enlarged text', (tester) async {

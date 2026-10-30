@@ -53,6 +53,7 @@ class NavigationDiagnostics {
     MediaQueryData media,
     Size window, {
     required bool floatingSetting,
+    required bool hideOnScroll,
     required bool floatingActive,
     required bool rail,
     required int selectedRoot,
@@ -71,9 +72,11 @@ class NavigationDiagnostics {
       'accessibleNavigation': media.accessibleNavigation,
       'disableAnimations': media.disableAnimations,
       'floatingSetting': floatingSetting,
-      // Compatibility field: effective behavior, no longer a selectable policy.
-      'floatingNavigationPolicy': 'hideOnScroll',
-      'floatingNavigationBehavior': 'scrollLinkedDefault',
+      'hideFloatingTabBarOnScroll': hideOnScroll,
+      // Retain these report fields for older diagnostic viewers.
+      'floatingNavigationPolicy': hideOnScroll ? 'hideOnScroll' : 'alwaysVisible',
+      'floatingNavigationBehavior':
+          hideOnScroll ? 'scrollLinkedDefault' : 'alwaysVisible',
       'policySuppressionReason': null,
       'floatingActive': floatingActive,
       'classicRail': rail,

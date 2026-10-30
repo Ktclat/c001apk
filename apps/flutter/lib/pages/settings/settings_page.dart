@@ -40,7 +40,8 @@ enum ImageQuality {
 }
 
 enum SettingsSection {
-  appearance('外观与字体', '配色、字体与悬浮 Tab 导航', Icons.palette_outlined),
+  appearance('外观与导航', '配色、深色模式与悬浮 Tab 导航', Icons.palette_outlined),
+  reading('阅读与字体', '思源字体、字号与正文排版', Icons.menu_book_outlined),
   content('关注与内容', '本地关注、悄悄关注、账号关注与表情', Icons.feed_outlined),
   privacy('浏览与隐私', '用户与话题黑名单、浏览历史、外部链接', Icons.privacy_tip_outlined),
   storage('存储与更新', '图片缓存、版本与更新检查', Icons.storage_outlined),
@@ -192,10 +193,25 @@ class _SettingsDetailPageState extends State<SettingsDetailPage> {
             const SwitchItem(
               icon: Icons.layers_outlined,
               title: '悬浮 Tab 导航',
-              subtitle: '向后浏览时下移淡出，反向滚动显示；键盘弹出时隐藏',
+              subtitle: '使用紧凑的悬浮底栏；键盘弹出时隐藏',
               boxKey: SettingsBoxKey.floatingTabBar,
               defaultValue: false,
             ),
+            ValueListenableBuilder(
+              valueListenable: GStorage.settings
+                  .listenable(keys: [SettingsBoxKey.floatingTabBar]),
+              builder: (context, _, __) => GStorage.floatingTabBar
+                  ? const SwitchItem(
+                      icon: Icons.swipe_vertical_outlined,
+                      title: '滚动时隐藏悬浮导航',
+                      subtitle: '向后浏览时平滑下移隐藏，反向滚动时恢复',
+                      boxKey: SettingsBoxKey.hideFloatingTabBarOnScroll,
+                      defaultValue: true,
+                    )
+                  : const SizedBox.shrink(),
+            ),
+          ],
+        SettingsSection.reading => [
             const FontChoiceTile(),
             const ReadingPresetTile(),
             ListTile(

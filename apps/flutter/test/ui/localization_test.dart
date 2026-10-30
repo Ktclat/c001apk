@@ -563,7 +563,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byTooltip('设置'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('外观与字体'));
+    await tester.tap(find.text('外观与导航'));
     await tester.pumpAndSettle();
     final picker = find.byWidgetPredicate((widget) =>
         widget is DropDownMenuItem &&
